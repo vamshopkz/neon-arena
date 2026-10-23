@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Неон Арена">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="theme-color" content="#050912">
+  <title>{{{ PRODUCT_NAME }}}</title>
+  <link rel="icon" href="icon.png">
+  <style>
+    :root { --sky: #0b1430; --sky2: #050912; --hay: #35e0ff; --ink: #ffffff; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #050912; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+    body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: var(--ink); }
+    /* Keep the game clear of the iPhone's notch / home bar (viewport-fit=cover reports them as safe-area insets). */
+    #unity-canvas { position: fixed; left: env(safe-area-inset-left, 0px); top: env(safe-area-inset-top, 0px);
+      width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+      height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+      height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+      display: block; background: #050912; outline: none; }
+    #ios-tip { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 6; display: none;
+      align-items: center; gap: 10px; max-width: min(92vw, 640px); padding: 10px 12px 10px 16px; border-radius: 14px;
+      background: rgba(12, 28, 56, .92); box-shadow: 0 6px 20px rgba(0,0,0,.35); font-size: 15px; line-height: 1.35; text-align: left; }
+    #ios-tip svg { width: 16px; height: 16px; vertical-align: -2px; }
+    #ios-tip small { display: block; opacity: .75; font-size: 12px; }
+    #ios-tip button { font-size: 18px; padding: 4px 12px; border-radius: 10px; border-bottom-width: 0; background: rgba(255,255,255,.18); flex: none; }
+    .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 16px; box-sizing: border-box; text-align: center; }
+    #loading { background: radial-gradient(circle at 50% 30%, #1a2a5a 0%, #050912 70%); z-index: 3; }
+    #loading img { width: min(34vmin, 180px); height: auto; border-radius: 22%; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+    h1 { margin: 0; font-size: clamp(22px, 6vmin, 44px); font-weight: 900; letter-spacing: 1px; text-shadow: 0 3px 0 rgba(0,0,0,.25); }
+    .bar { width: min(70vw, 420px); height: 18px; border-radius: 9px; background: rgba(0,0,0,.3); overflow: hidden; border: 2px solid rgba(255,255,255,.6); }
+    .bar > div { height: 100%; width: 0%; background: var(--hay); transition: width .2s; }
+    #status { font-size: clamp(14px, 3.6vmin, 20px); opacity: .95; max-width: 90vw; }
+    button { font: inherit; font-size: clamp(22px, 6vmin, 36px); font-weight: 900; color: #fff; background: #3fb34f; border: 0; border-bottom: 6px solid #2a8a38; border-radius: 18px; padding: 16px 48px; cursor: pointer; }
+    button:active { transform: translateY(3px); border-bottom-width: 3px; }
+    .hint { font-size: clamp(13px, 3.2vmin, 18px); opacity: .9; max-width: 80vw; }
+    #rotate { background: #050912; z-index: 5; display: none; }
+    #rotate .phone { width: 64px; height: 104px; border: 5px solid #fff; border-radius: 12px; animation: turn 2s ease-in-out infinite; }
+    @keyframes turn { 0%, 20% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
+    #rotate button { font-size: 16px; padding: 10px 22px; background: rgba(255,255,255,.18); border-bottom-color: rgba(0,0,0,.2); }
+    @media (orientation: portrait) { body.mobile:not(.portrait-ok) #rotate { display: flex; } }
+  </style>
+</head>
+<body>
+  <canvas id="unity-canvas" tabindex="-1"></canvas>
+
+  <div id="loading" class="screen">
+    <img src="icon.png" alt="">
+    <h1>{{{ PRODUCT_NAME }}}</h1>
+    <div class="bar"><div id="bar"></div></div>
+    <div id="status">Загрузка игры…</div>
+    <div class="hint">Прогресс сохраняется в этом браузере</div>
+  </div>
+
+
+  <div id="ios-tip">
+    <div>На весь экран: нажмите «Поделиться»
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>
+      → «На экран „Домой“» и открывайте игру с новой иконки.
+      <small>Лучше сделать это сразу: там свой прогресс, отдельный от Safari.</small></div>
+    <button id="ios-tip-close" aria-label="Закрыть">✕</button>
+  </div>
+
+  <div id="rotate" class="screen">
+    <div class="phone"></div>
+    <h1>Поверните телефон</h1>
+    <div class="hint">Играть удобнее горизонтально</div>
+    <button id="portrait-ok">Играть так</button>
+  </div>
+
+  <script>
+    var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+    if (isMobile) document.body.classList.add("mobile");
+    document.getElementById("portrait-ok").onclick = function () { document.body.classList.add("portrait-ok"); };
+
+    var canvas = document.getElementById("unity-canvas");
+    var bar = document.getElementById("bar");
+    var statusEl = document.getElementById("status");
+    var instance = null;
+
+    function fail(msg) {
+      statusEl.textContent = msg;
+      bar.parentNode.style.display = "none";
+    }
+
+    var probe = document.createElement("canvas");
+    if (!probe.getContext("webgl2")) {
+      fail("Этот браузер не поддерживает 3D-графику (WebGL 2). Откройте ссылку в Chrome или Safari последней версии.");
+    } else {
+      var buildUrl = "Build";
+      var config = {
+        dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+        frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+#if USE_THREADS
+        workerUrl: buildUrl + "/{{{ WORKER_FILENAME }}}",
+#endif
+#if USE_WASM
+        codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+#endif
+#if MEMORY_FILENAME
+        memoryUrl: buildUrl + "/{{{ MEMORY_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+        symbolsUrl: buildUrl + "/{{{ SYMBOLS_FILENAME }}}",
+#endif
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+        productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+        productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+        // Phones have very dense screens; rendering every physical pixel would make the game slow.
+        devicePixelRatio: Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2),
+      };
+
+      var script = document.createElement("script");
+      script.src = buildUrl + "/{{{ LOADER_FILENAME }}}";
+      script.onload = function () {
+        createUnityInstance(canvas, config, function (progress) {
+          bar.style.width = Math.round(progress * 100) + "%";
+          statusEl.textContent = progress < 0.9 ? "Загрузка игры… " + Math.round(progress * 100) + "%" : "Строим арену…";
+        }).then(function (unityInstance) {
+          instance = unityInstance;
+          document.getElementById("loading").style.display = "none";
+          canvas.focus();
+        }).catch(function (message) {
+          fail("Не удалось запустить игру: " + message);
+        });
+      };
+      script.onerror = function () { fail("Не удалось загрузить игру. Проверьте интернет и обновите страницу."); };
+      document.body.appendChild(script);
+    }
+
+    // Phones: the first tap also switches to full screen and turns the picture landscape (Android;
+    // a browser only allows that from a tap). Only once: if the player leaves full screen, it stays so.
+    function goFullscreen() {
+      if (!isMobile || document.fullscreenElement || document.webkitFullscreenElement) return;
+      var el = document.documentElement;
+      var req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (!req) return;
+      try {
+        var p = req.call(el, { navigationUI: "hide" });
+        if (p && p.then) p.then(function () {
+          if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(function () {});
+        }).catch(function () {});
+      } catch (e) {}
+    }
+    document.addEventListener("pointerup", goFullscreen, { capture: true, once: true });
+
+    // iPhone: Safari doesn't let a page go full screen; a Home Screen shortcut opens the game without
+    // Safari's bars. Explain that until the player closes the tip (or already runs from the Home Screen).
+    (function () {
+      var iPhone = /iPhone|iPod/.test(navigator.userAgent);
+      var standalone = navigator.standalone === true || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
+      var dismissed = false;
+      try { dismissed = localStorage.getItem("hh_ios_tip") === "1"; } catch (e) {}
+      if (!iPhone || standalone || dismissed) return;
+      var tip = document.getElementById("ios-tip");
+      tip.style.display = "flex";
+      document.getElementById("ios-tip-close").onclick = function () {
+        tip.style.display = "none";
+        try { localStorage.setItem("hh_ios_tip", "1"); } catch (e) {}
+      };
+    })();
+
+    // Browsers keep sound off until the player touches the page: wake the voice chat's audio on every tap.
+    document.addEventListener("pointerdown", function () {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      try {
+        var ctx = window.hayAudioCtx = window.hayAudioCtx || new AC();
+        if (ctx.state === "suspended") ctx.resume();
+      } catch (e) {}
+      // A song the browser did not let start (no tap yet): start it now, inside the tap.
+      var a = window.haySong;
+      if (a && a.hayWant && a.paused && a.src) { var p = a.play(); if (p && p.catch) p.catch(function () {}); }
+    }, true);
+
+    // Save when the tab is hidden or closed (the game also autosaves every 20 seconds).
+    function saveNow() { if (instance) { try { instance.SendMessage("Game", "OnWebHidden"); } catch (e) {} } }
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") saveNow(); });
+    window.addEventListener("pagehide", saveNow);
+  </script>
+</body>
+</html>
