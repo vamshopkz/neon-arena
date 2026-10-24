@@ -30,12 +30,14 @@ namespace Arena
         public Vector3 vel;
         public readonly List<Slot> Slots = new List<Slot>();
         public int cur;
-        public bool zoomed;
+        public bool zoomed, EnemyInSight;
+        float medNext;
         public string lastKiller = "";
 
         Transform vmRoot, vmModel, muzzle, flash;
         float camY, bobT, kick, recoil, switchT, swingT, throwT, flashT, stepT;
         Vector2 sway;
+        float aimK;
         int lastSlot;
         bool zoomHeldTouch;
         readonly RaycastHit[] hits = new RaycastHit[32];
@@ -160,7 +162,7 @@ namespace Arena
             // look
             if (!InputBlocked)
             {
-                float sens = Save.P.sens * (zoomed && Cur != null && Cur.w.zoom > 0 ? 1f / Cur.w.zoom : 1f);
+                float sens = Save.P.sens * (zoomed && Cur != null ? 1f / Defs.AimZoom(Cur.w) : 1f);
                 if (desktop && Cursor.lockState == CursorLockMode.Locked)
                 {
                     float mx = Input.GetAxisRaw("Mouse X"), my = Input.GetAxisRaw("Mouse Y");
@@ -194,7 +196,7 @@ namespace Arena
             }
             JumpTap = false;
             if (mv.magnitude > 1) mv.Normalize();
-            float speed = (run && mv.y > 0.3f ? 8.2f : 5.6f) * (zoomed ? 0.5f : 1f);
+            float speed = (run && mv.y > 0.3f ? 8.2f : 5.6f) * (zoomed ? (Cur != null && Cur.w.zoom > 0 ? 0.5f : 0.8f) : 1f);
             var q = Quaternion.Euler(0, yaw, 0);
             var wish = q * new Vector3(mv.x, 0, mv.y) * speed;
             float acc = CC.isGrounded ? 14 : 3;
@@ -230,7 +232,7 @@ namespace Arena
         {
             var s = Cur;
             if (switchT > 0) switchT = Mathf.Max(0, switchT - dt);
-            if (s == null) { zoomed = false; return; }
+            if (s == null) { zoomed = false; EnemyInSight = false; return; }
             var w = s.w;
             float now = Time.time;
             if (s.reloadEnd > 0 && now >= s.reloadEnd)
@@ -253,18 +255,57 @@ namespace Arena
                     float wheel = Input.mouseScrollDelta.y;
                     if (wheel > 0.1f) Next(-1); else if (wheel < -0.1f) Next(1);
                     if (Input.GetKeyDown(KeyCode.Q) && lastSlot >= 0 && lastSlot < Slots.Count) Equip(lastSlot);
+                    for (int i = 0; i < Defs.Medkits.Count; i++) if (Input.GetKeyDown(KeyCode.Alpha6 + i)) UseMedkit(Defs.Medkits[i].id);
                 }
                 if (ReloadTap) Reload();
                 if (ZoomToggle) zoomHeldTouch = !zoomHeldTouch;
             }
             FireTap = ReloadTap = ZoomToggle = false;
             bool zoomWant = (desktop && Cursor.lockState == CursorLockMode.Locked && Input.GetMouseButton(1)) || zoomHeldTouch;
-            zoomed = canAct && zoomWant && w.zoom > 0 && s.reloadEnd == 0 && switchT == 0;
-            if (w.zoom <= 0) zoomHeldTouch = false;
-            float fov = zoomed ? 70f / w.zoom : 72f;
+            zoomed = canAct && zoomWant && s.reloadEnd == 0 && switchT == 0;
+            // sight on: an enemy under the crosshair is shot automatically
+            EnemyInSight = zoomed && SightOnTarget(w);
+            if (EnemyInSight) TryFire();
+            float fov = zoomed ? 72f / Defs.AimZoom(w) : 72f;
             Cam.fieldOfView = Mathf.Lerp(Cam.fieldOfView, fov, 1 - Mathf.Exp(-dt * 16));
 
             Viewmodel(dt, s, now);
+        }
+
+        /// <summary>Is a living enemy (or a standing range target) right under the crosshair, within reach of this weapon?</summary>
+        bool SightOnTarget(WeaponDef w)
+        {
+            var s = Cur;
+            if (s == null || (s.ammo <= 0 && w.UsesAmmo && !w.Hitscan && w.type != WType.Rocket)) return false;
+            var c = Cam.transform;
+            float range = w.type == WType.Melee ? w.reach + 0.6f : w.Projectile ? 60f : w.range;
+            int n = Physics.RaycastNonAlloc(c.position, c.forward, hits, range, Layers.ShotMask, QueryTriggerInteraction.Collide);
+            System.Array.Sort(hits, 0, n, HitCmp.I);
+            var g = Game.I;
+            for (int i = 0; i < n; i++)
+            {
+                var ht = hits[i].collider.GetComponent<Hittable>();
+                if (ht == null) return false;                       // a wall is in the way
+                if (ht.kind == 0) { if (g.IsEnemy(ht.id)) return true; continue; }
+                if (ht.kind == 1) return !ht.target.IsDown;
+                return false;
+            }
+            return false;
+        }
+
+        /// <summary>Uses a first-aid kit from stock (keys 6/7/8 or the HUD buttons).</summary>
+        public bool UseMedkit(string id)
+        {
+            var md = Defs.Med(id);
+            if (md == null || !alive || Time.time < medNext) return false;
+            if (Save.Meds(id) <= 0) { AudioFx.Play("error"); Hud.Toast("Нет такой аптечки — купи в магазине", UIKit.Red); return false; }
+            if (hp >= 100) { Hud.Toast("Здоровье и так полное", UIKit.Muted); return false; }
+            Save.AddMeds(id, -1);
+            Heal(md.heal);
+            medNext = Time.time + 1f;
+            AudioFx.Play("pickup");
+            Hud.Center("+" + md.heal + " ХП", 1f, UIKit.Lime);
+            return true;
         }
 
         public void Next(int d)
@@ -407,6 +448,8 @@ namespace Arena
             if (vmModel == null) return;
             var w = s.w;
             var basePos = Off.TryGetValue(w.id, out var o) ? o : Off[w.cat];
+            aimK = Mathf.MoveTowards(aimK, zoomed ? 1 : 0, dt * 6);
+            basePos = Vector3.Lerp(basePos, new Vector3(0, -0.15f, basePos.z + 0.04f), aimK);
             float sp = new Vector2(vel.x, vel.z).magnitude;
             bobT += dt * sp * 1.7f;
             float bob = CC.isGrounded ? Mathf.Min(1, sp / 6) : 0;
@@ -440,10 +483,10 @@ namespace Arena
             vmModel.localPosition = pos;
             vmModel.localRotation = Quaternion.Euler(rot);
             bool hasAmmo = s.ammo > 0 || w.Hitscan || w.type == WType.Melee || w.type == WType.Rocket;
-            vmRoot.gameObject.SetActive(alive && !zoomed && hasAmmo);
+            vmRoot.gameObject.SetActive(alive && !(zoomed && w.zoom > 0) && hasAmmo);
             flashT -= dt;
             bool fl = flashT > 0 && muzzle != null && w.Hitscan || flashT > 0 && w.type == WType.Rocket;
-            flash.gameObject.SetActive(fl && !zoomed);
+            flash.gameObject.SetActive(fl && !(zoomed && w.zoom > 0));
             if (fl && muzzle != null) { flash.position = muzzle.position; flash.rotation = Quaternion.Euler(0, 0, Random.Range(0, 360)) * VmCam.transform.rotation; }
         }
 

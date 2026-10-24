@@ -26,6 +26,14 @@ namespace Arena
         public Color tint;
     }
 
+    /// <summary>First-aid kit from the shop: bought into stock, used in a fight.</summary>
+    public class MedDef
+    {
+        public string id, name;
+        public int heal, price;
+        public Color color;
+    }
+
     public class MapDef
     {
         public string id, name, desc;
@@ -71,6 +79,17 @@ namespace Arena
             new SkinDef { id = "cosmic", name = "Космическая туманность", price = 1000, tint = new Color(0.45f, 0.2f, 0.9f) },
             new SkinDef { id = "golden", name = "Золотой", price = 1500, tint = new Color(1f, 0.8f, 0.25f) },
         };
+
+        public static readonly List<MedDef> Medkits = new List<MedDef>
+        {
+            new MedDef { id = "med10", name = "Малая аптечка", heal = 10, price = 40, color = new Color(1f, 0.55f, 0.55f) },
+            new MedDef { id = "med50", name = "Аптечка", heal = 50, price = 180, color = new Color(0.9f, 0.2f, 0.2f) },
+            new MedDef { id = "med100", name = "Большая аптечка", heal = 100, price = 400, color = new Color(0.6f, 0.05f, 0.1f) },
+        };
+        public static MedDef Med(string id) => Medkits.Find(m => m.id == id);
+
+        /// <summary>Aiming zoom: snipers use their optics, everything else a red-dot sight.</summary>
+        public static float AimZoom(WeaponDef w) => w.zoom > 0 ? w.zoom : w.cat == "primary" ? 1.6f : w.cat == "pistol" ? 1.35f : 1.1f;
 
         public static readonly List<MapDef> Maps = new List<MapDef>
         {

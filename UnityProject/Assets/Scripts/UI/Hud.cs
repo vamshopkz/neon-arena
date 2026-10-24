@@ -13,7 +13,9 @@ namespace Arena
         public static bool Blocking => Menus.OverlayOpen;
         RectTransform root;
         Image dmgFlash, hpFill, hit, scope;
-        RectTransform cross;
+        RectTransform cross, reticle, medRow;
+        Image reticleRing, reticleDot;
+        readonly List<UIButton> medBtns = new List<UIButton>();
         TextMeshProUGUI hpText, ammoText, wName, scoreA, scoreB, timer, coins, center, hint, toast, partyLbl, rangeTxt, modeTxt;
         RectTransform feed, slotsRow, touchRoot, scoreboard;
         UIButton shopBtn, partyBtn, menuBtn, fireBtn, zoomBtn, scoreBtn;
@@ -62,6 +64,15 @@ namespace Arena
                 UIKit.Place(b.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(v.x, v.y), new Vector2(v.z, v.w));
                 var sh = b.gameObject.AddComponent<Shadow>(); sh.effectColor = new Color(0, 0, 0, 0.8f);
             }
+            // red-dot sight shown while aiming (any weapon); turns red over an enemy = automatic fire
+            reticle = UIKit.Rect("Reticle", root);
+            UIKit.Place(reticle, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(120, 120));
+            reticleRing = UIKit.Img(reticle, UIKit.Ring, new Color(0.3f, 1f, 0.5f, 0.95f), "Ring");
+            UIKit.Fill(reticleRing.rectTransform);
+            reticleDot = UIKit.Img(reticle, UIKit.Circle, new Color(0.3f, 1f, 0.5f, 1f), "Dot");
+            UIKit.Place(reticleDot.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(12, 12));
+            reticle.gameObject.SetActive(false);
+
             hit = UIKit.Img(root, UIKit.Ring, new Color(1, 1, 1, 0), "HitMarker");
             UIKit.Place(hit.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(44, 44));
 
@@ -102,6 +113,20 @@ namespace Arena
 
             wName = T("", 26, UIKit.Muted, TextAlignmentOptions.Right, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-24 - safe.z, 70 + safe.y), new Vector2(400, 36));
             ammoText = T("", 48, Color.white, TextAlignmentOptions.Right, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-24 - safe.z, 14 + safe.y), new Vector2(400, 60));
+
+            // first-aid kits from the shop (keys 6/7/8 or tap)
+            medRow = UIKit.Rect("Medkits", root);
+            UIKit.Place(medRow, new Vector2(0, 0), new Vector2(0, 0), new Vector2(24 + safe.x, 94 + safe.y), new Vector2(420, 60));
+            var mh = medRow.gameObject.AddComponent<HorizontalLayoutGroup>();
+            mh.spacing = 8; mh.childControlWidth = false; mh.childControlHeight = false; mh.childAlignment = TextAnchor.MiddleLeft;
+            for (int i = 0; i < Defs.Medkits.Count; i++)
+            {
+                var md = Defs.Medkits[i];
+                var b = UIKit.Button(medRow, "", md.color * 0.85f, () => PlayerCtl.I.UseMedkit(md.id), 20);
+                b.Bg.rectTransform.sizeDelta = new Vector2(132, 56);
+                b.FireOnDown = Touch;
+                medBtns.Add(b);
+            }
 
             slotsRow = UIKit.Rect("Slots", root);
             UIKit.Place(slotsRow, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 18 + safe.y), new Vector2(900, 74));
@@ -246,8 +271,22 @@ namespace Arena
             dmgFlash.color = new Color(1, 0, 0, dmgT * 0.6f + (p.alive ? (p.hp < 30 ? 0.12f : 0) : 0.25f));
             hitT = Mathf.Max(0, hitT - dt);
             var hc = hit.color; hc.a = hitT * 4; hit.color = hc;
-            scope.gameObject.SetActive(p.zoomed);
+            bool sniper = p.zoomed && p.Cur != null && p.Cur.w.zoom > 0;
+            scope.gameObject.SetActive(sniper);
+            reticle.gameObject.SetActive(p.zoomed && p.alive);
+            reticleRing.gameObject.SetActive(!sniper);
+            var rc = p.EnemyInSight ? new Color(1f, 0.2f, 0.25f, 1f) : new Color(0.3f, 1f, 0.5f, 0.95f);
+            reticleRing.color = rc; reticleDot.color = rc;
             cross.gameObject.SetActive(!p.zoomed && p.alive);
+            bool inMatch = g.M != null;
+            medRow.gameObject.SetActive(inMatch);
+            for (int i = 0; i < medBtns.Count; i++)
+            {
+                var md = Defs.Medkits[i];
+                int cnt = Save.Meds(md.id);
+                medBtns[i].Set((Touch ? "" : (6 + i) + ": ") + "+" + md.heal + " x" + cnt);
+                medBtns[i].Bg.color = cnt > 0 ? md.color * 0.85f : new Color(0.25f, 0.25f, 0.3f, 0.8f);
+            }
 
             hpText.text = Mathf.CeilToInt(p.hp).ToString();
             hpFill.rectTransform.sizeDelta = new Vector2(226 * Mathf.Clamp01(p.hp / 100), 18);
@@ -290,8 +329,9 @@ namespace Arena
             else if (m == null && g.InShopZone) h = Touch ? "Нажми МАГАЗИН, чтобы купить оружие и скины" : "Нажми E — магазин оружия и скинов";
             else if (m == null && p.Pos.z > 18) h = "Встань в портал 1 VS 1 … 5 VS 5";
             else if (m != null && m.state == 0) h = "Приготовься!";
+            else if (p.zoomed) h = "ПРИЦЕЛ ВКЛЮЧЁН — наведи на соперника, оружие выстрелит само";
             hint.text = h;
-            if (zoomBtn != null) zoomBtn.gameObject.SetActive(s != null && s.w.zoom > 0);
+            if (zoomBtn != null) zoomBtn.Bg.color = p.zoomed ? new Color(1f, 0.25f, 0.6f, 0.85f) : new Color(0.3f, 0.3f, 0.4f, 0.75f);
             if (fireBtn != null) fireBtn.Set(s != null && s.w.type == WType.Melee ? "УДАР" : s != null && !s.w.Hitscan && s.w.type != WType.Rocket ? "БРОСОК" : "ОГОНЬ");
             if (touchRoot != null) touchRoot.gameObject.SetActive(!Menus.AnyOpen);
 

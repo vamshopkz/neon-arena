@@ -72,6 +72,7 @@ namespace Arena
         public float moveAmp, moveSpeed, baseX;
         float down, downUntil;
         public static int Hits;
+        public bool IsDown => Time.time < downUntil;
 
         public void Hit()
         {

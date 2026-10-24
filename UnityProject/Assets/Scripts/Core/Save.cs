@@ -18,6 +18,7 @@ namespace Arena
         public float sens = 1f, volume = 0.8f;
         public int quality = -1;
         public int kills, deaths, wins, matches;
+        public int med10, med50, med100;
         public string lastRoom = "";
     }
 
@@ -82,6 +83,14 @@ namespace Arena
                 case "throw": P.thrown = w; break;
                 default: P.grenade = w; break;
             }
+            Write();
+        }
+
+        public static int Meds(string id) => id == "med10" ? P.med10 : id == "med50" ? P.med50 : P.med100;
+
+        public static void AddMeds(string id, int n)
+        {
+            if (id == "med10") P.med10 += n; else if (id == "med50") P.med50 += n; else P.med100 += n;
             Write();
         }
 

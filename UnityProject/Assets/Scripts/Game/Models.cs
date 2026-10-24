@@ -171,6 +171,25 @@ namespace Arena
             return root;
         }
 
+        /// <summary>First-aid kit for the shop preview: the bigger the heal, the bigger the box.</summary>
+        public static GameObject Medkit(string id, Transform parent, int layer)
+        {
+            var md = Defs.Med(id);
+            float s = md.heal >= 100 ? 1.3f : md.heal >= 50 ? 1f : 0.7f;
+            var g = new Geo();
+            var body = Mats.Lit(md.color, 0.45f);
+            var white = Mats.Lit(Color.white, 0.5f);
+            g.Box(body, Vector3.zero, new Vector3(0.36f, 0.24f, 0.12f) * s, Quaternion.identity, 0.5f);
+            g.Box(white, new Vector3(0, 0, -0.062f * s), new Vector3(0.2f, 0.06f, 0.01f) * s, Quaternion.identity, 0.5f);
+            g.Box(white, new Vector3(0, 0, -0.062f * s), new Vector3(0.06f, 0.2f, 0.01f) * s, Quaternion.identity, 0.5f);
+            g.Box(Mats.Lit(new Color(0.15f, 0.15f, 0.15f), 0.3f), new Vector3(0, 0.14f * s, 0), new Vector3(0.14f, 0.04f, 0.04f) * s, Quaternion.identity, 0.5f);
+            var root = new GameObject(id);
+            root.transform.SetParent(parent, false);
+            g.Build("Mesh", root.transform, false, layer);
+            Prim.SetLayer(root, layer);
+            return root;
+        }
+
         /// <summary>Flying rocket (RPG warhead).</summary>
         public static GameObject Rocket(Transform parent)
         {

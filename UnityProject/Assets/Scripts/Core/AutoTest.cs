@@ -86,6 +86,7 @@ namespace Arena
             Check("coins spent", Save.P.coins < 50000);
             yield return Wait(0.3f); yield return Shot("07_golden_ak");
             Menus.Shop(); yield return Wait(0.8f); yield return Shot("08_shop_owned"); Window.Close();
+            Menus.ShopSection("med"); yield return Wait(0.8f); yield return Shot("09_shop_medkits"); Window.Close();
 
             // vote → match on each map
             foreach (var map in new[] { "desert", "maze", "stadium", "forest" })
@@ -142,6 +143,32 @@ namespace Arena
                 int s0 = g.M.score[1];
                 yield return Wait(1.5f);
                 Check("stadium: goal into east goal gives team A +3", g.M.score[1] == s0 + 3);
+            }
+            if (map == "maze")
+            {
+                // shop medkit: buy +50, use it in the fight
+                int c0 = Save.P.coins;
+                Save.Buy(Defs.Med("med50").price); Save.AddMeds("med50", 1);
+                p.hp = 30;
+                bool used = p.UseMedkit("med50");
+                Check("maze: bought medkit +50 and healed 30→" + p.hp, used && Mathf.Approximately(p.hp, 80) && Save.Meds("med50") == 0 && Save.P.coins == c0 - 180);
+                // sight on → aim at the bot, no trigger pull: it must shoot by itself
+                for (int i = 0; i < 300 && !g.Bots.Any(x => x.team != p.team && x.alive); i++) yield return null;
+                var bt = g.Bots.FirstOrDefault(x => x.team != p.team && x.alive);
+                int k0 = g.M.stats[Save.P.id].x;
+                p.ZoomToggle = true;
+                for (int i = 0; i < 60 && bt != null && g.M.stats[Save.P.id].x == k0; i++)
+                {
+                    if (!bt.alive) break;
+                    bt.cc.enabled = false; bt.av.transform.position = new Vector3(0, 0.05f, 2f); bt.cc.enabled = true;
+                    Look(new Vector3(0, 0.1f, -2.5f), new Vector3(0, 1.2f, 2f));
+                    p.Slots[0].ammo = Mathf.Max(p.Slots[0].ammo, 5); p.Slots[0].reloadEnd = 0;
+                    yield return null; yield return null;
+                    if (i == 3) yield return Shot("25_maze_sight");
+                }
+                Check("maze: sight auto-fires at the enemy (kills " + g.M.stats[Save.P.id].x + ")", g.M.stats[Save.P.id].x > k0);
+                p.ZoomToggle = true;
+                yield return null;
             }
             if (map == "forest")
             {

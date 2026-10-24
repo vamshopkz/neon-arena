@@ -173,11 +173,13 @@ namespace Arena
         static GameObject previewModel;
         static string previewKey;
 
+        public static void ShopSection(string cat) { shopCat = cat; if (cat == "med") shopW = "med50"; Shop(); }
+
         public static void Shop()
         {
             if (OverlayOpen || Game.I.M != null) return;
             Unlock();
-            if (Defs.W(shopW)?.cat != shopCat) shopW = Defs.Weapons.First(x => x.cat == shopCat).id;
+            if (shopCat != "med" && Defs.W(shopW)?.cat != shopCat) shopW = Defs.Weapons.First(x => x.cat == shopCat).id;
             Window.Show("МАГАЗИН ОРУЖИЯ И СКИНОВ", FillShop, 1300, 860).OnClose = () => { if (previewCam != null) previewCam.enabled = false; LockCursor(); };
         }
 
@@ -189,7 +191,9 @@ namespace Arena
                 string c = Defs.Cats[i];
                 cats.Add((Defs.CatNames[i], new Color(0.2f, 0.25f, 0.5f), shopCat == c, () => { shopCat = c; shopW = Defs.Weapons.First(x => x.cat == c).id; shopSkin = Save.SkinOf(shopW); Window.Refresh(); }));
             }
+            cats.Add(("Аптечки", new Color(0.6f, 0.15f, 0.2f), shopCat == "med", () => { shopCat = "med"; shopW = "med50"; Window.Refresh(); }));
             w.Chips("Раздел", cats);
+            if (shopCat == "med") { FillMedkits(w); return; }
             var ws = new List<(string, Color, bool, System.Action)>();
             foreach (var x in Defs.Weapons.Where(x => x.cat == shopCat))
             {
@@ -263,6 +267,39 @@ namespace Arena
             w.Footer.text = "Монеты: " + UIKit.Num(Save.P.coins) + "  ·  +" + Defs.RewardKill + " за победу над врагом, +" + Defs.RewardWin + " за выигранный бой";
         }
 
+        static void FillMedkits(Window w)
+        {
+            if (Defs.Med(shopW) == null) shopW = "med50";
+            var chips = new List<(string, Color, bool, System.Action)>();
+            foreach (var m in Defs.Medkits)
+            {
+                var id = m.id;
+                chips.Add(("+" + m.heal + " ХП", m.color * 0.8f, shopW == id, () => { shopW = id; Window.Refresh(); }));
+            }
+            w.Chips("Аптечки (лечат в бою: клавиши 6 / 7 / 8 или кнопки над здоровьем)", chips);
+            var md = Defs.Med(shopW);
+            var holder = UIKit.Img(w.Content, UIKit.Glass, Color.white, "Preview");
+            holder.gameObject.AddComponent<LayoutElement>().minHeight = 300;
+            var raw = UIKit.Rect("Raw", holder.transform).gameObject.AddComponent<RawImage>();
+            UIKit.Fill(raw.rectTransform, 8, 8, 8, 8);
+            raw.texture = Preview(md.id, "std");
+            raw.raycastTarget = false;
+            int have = Save.Meds(md.id);
+            foreach (int n in new[] { 1, 5 })
+            {
+                int cost = md.price * n;
+                w.Row(md.name + " +" + md.heal + " ХП" + (n > 1 ? "  ×" + n : ""), "Цена " + UIKit.Num(cost) + " · у тебя: " + have + " шт.", "КУПИТЬ " + UIKit.Num(cost), UIKit.Gold, () =>
+                {
+                    if (!Save.Buy(cost)) { AudioFx.Play("error"); Hud.Toast("Не хватает монет", UIKit.Red); return; }
+                    Save.AddMeds(md.id, n);
+                    AudioFx.Play("buy");
+                    Window.Refresh();
+                }, Save.P.coins >= cost);
+            }
+            w.Text("Все аптечки: " + string.Join(" · ", Defs.Medkits.Select(m => "+" + m.heal + " ХП — " + m.price + " монет (есть " + Save.Meds(m.id) + ")")), 24, UIKit.Muted);
+            w.Footer.text = "Монеты: " + UIKit.Num(Save.P.coins);
+        }
+
         /// <summary>Renders the weapon with the chosen skin, slowly turning, into a texture for the shop.</summary>
         static RenderTexture Preview(string wid, string skin)
         {
@@ -295,12 +332,12 @@ namespace Arena
                 var holder = new GameObject("Model").transform;
                 holder.SetParent(previewRoot, false);
                 previewModel = holder.gameObject;
-                var m = Models.Weapon(wid, skin, holder, Layers.Icon);
+                var m = wid.StartsWith("med") ? Models.Medkit(wid, holder, Layers.Icon) : Models.Weapon(wid, skin, holder, Layers.Icon);
                 var b = new Bounds();
                 bool first = true;
                 foreach (var r in m.GetComponentsInChildren<Renderer>()) { if (first) { b = r.bounds; first = false; } else b.Encapsulate(r.bounds); }
                 float size = Mathf.Max(b.size.x, b.size.y, b.size.z);
-                float k = 1.15f / Mathf.Max(0.05f, size);
+                float k = (wid.StartsWith("med") ? 0.6f : 1.15f) / Mathf.Max(0.05f, size);
                 m.transform.localScale = Vector3.one * k;
                 m.transform.position -= (b.center - holder.position) * k;
                 if (wid == "shuriken") holder.localRotation = Quaternion.Euler(-70, 0, 0);
