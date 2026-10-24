@@ -258,10 +258,11 @@ namespace Arena
                     for (int i = 0; i < Defs.Medkits.Count; i++) if (Input.GetKeyDown(KeyCode.Alpha6 + i)) UseMedkit(Defs.Medkits[i].id);
                 }
                 if (ReloadTap) Reload();
-                if (ZoomToggle) zoomHeldTouch = !zoomHeldTouch;
+                if (ZoomToggle || (desktop && Cursor.lockState == CursorLockMode.Locked && Input.GetMouseButtonDown(1))) zoomHeldTouch = !zoomHeldTouch;
             }
             FireTap = ReloadTap = ZoomToggle = false;
-            bool zoomWant = (desktop && Cursor.lockState == CursorLockMode.Locked && Input.GetMouseButton(1)) || zoomHeldTouch;
+            if (!alive) zoomHeldTouch = false;
+            bool zoomWant = zoomHeldTouch;
             zoomed = canAct && zoomWant && s.reloadEnd == 0 && switchT == 0;
             // sight on: an enemy under the crosshair is shot automatically
             EnemyInSight = zoomed && SightOnTarget(w);
@@ -307,6 +308,10 @@ namespace Arena
             Hud.Center("+" + md.heal + " ХП", 1f, UIKit.Lime);
             return true;
         }
+
+        /// <summary>"УБРАТЬ ПРИЦЕЛ" button / right mouse button.</summary>
+        public void AimOff() { zoomHeldTouch = false; zoomed = false; }
+        public bool AimOn => zoomHeldTouch;
 
         public void Next(int d)
         {
@@ -363,29 +368,38 @@ namespace Arena
                 if (s.ammo == 0 && w.type != WType.Rocket) Invoke(nameof(SwitchFromEmpty), 0.5f);
                 return;
             }
-            // hitscan
+            // hitscan (shotguns fire several pellets; damage per target is summed into one hit)
             float spread = w.spread + (Moving ? w.moveSpread : 0) + (CC.isGrounded ? 0 : 0.05f);
-            if (zoomed) spread = 0.0015f;
-            var d = (camT.forward + camT.right * Random.Range(-spread, spread) + camT.up * Random.Range(-spread, spread)).normalized;
-            var end = camT.position + d * w.range;
-            int n = Physics.RaycastNonAlloc(camT.position, d, hits, w.range, Layers.ShotMask, QueryTriggerInteraction.Collide);
-            System.Array.Sort(hits, 0, n, HitCmp.I);
-            for (int i = 0; i < n; i++)
+            if (zoomed) spread = w.pellets > 1 ? w.spread * 0.6f : 0.0015f;
+            var dmgBy = new Dictionary<string, (float dmg, bool head, Vector3 at)>();
+            Vector3 end = camT.position + camT.forward * w.range;
+            for (int pel = 0; pel < Mathf.Max(1, w.pellets); pel++)
             {
-                var h = hits[i];
-                var ht = h.collider.GetComponent<Hittable>();
-                if (ht == null) { end = h.point; g.Impact(h.point, h.normal); break; }
-                if (ht.kind == 0)
+                var d = (camT.forward + camT.right * Random.Range(-spread, spread) + camT.up * Random.Range(-spread, spread)).normalized;
+                var pend = camT.position + d * w.range;
+                int n = Physics.RaycastNonAlloc(camT.position, d, hits, w.range, Layers.ShotMask, QueryTriggerInteraction.Collide);
+                System.Array.Sort(hits, 0, n, HitCmp.I);
+                for (int i = 0; i < n; i++)
                 {
-                    if (!g.IsEnemy(ht.id)) continue;
-                    end = h.point;
-                    g.DealDamage(ht.id, w.dmg * (ht.head ? 2 : 1), w.id, ht.head);
-                    g.Blood(h.point);
-                    break;
+                    var h = hits[i];
+                    var ht = h.collider.GetComponent<Hittable>();
+                    if (ht == null) { pend = h.point; g.Impact(h.point, h.normal); break; }
+                    if (ht.kind == 0)
+                    {
+                        if (!g.IsEnemy(ht.id)) continue;
+                        pend = h.point;
+                        float falloff = w.pellets > 1 ? Mathf.Clamp(1.4f - h.distance / 25f, 0.25f, 1f) : 1f;
+                        dmgBy.TryGetValue(ht.id, out var acc);
+                        dmgBy[ht.id] = (acc.dmg + w.dmg * falloff * (ht.head ? 2 : 1), acc.head || ht.head, h.point);
+                        break;
+                    }
+                    if (ht.kind == 1) { pend = h.point; ht.target.Hit(); Hud.HitMarker(false); AudioFx.Play("hit"); break; }
+                    if (ht.kind == 2) { pend = h.point; g.KickBall(d * 6); break; }
                 }
-                if (ht.kind == 1) { end = h.point; ht.target.Hit(); Hud.HitMarker(false); AudioFx.Play("hit"); break; }
-                if (ht.kind == 2) { end = h.point; g.KickBall(d * 6); break; }
+                if (pel == 0) end = pend;
+                else g.Tracer(MuzzleWorld(), pend, true);
             }
+            foreach (var kv in dmgBy) { g.DealDamage(kv.Key, kv.Value.dmg, w.id, kv.Value.head); g.Blood(kv.Value.at); }
             Flash();
             var mpos = MuzzleWorld();
             g.Tracer(mpos, end, true);

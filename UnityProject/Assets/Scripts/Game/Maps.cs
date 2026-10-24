@@ -417,7 +417,7 @@ namespace Arena
 
             // --- shop: tables with weapons, wall rack, sign
             m.shop = Rect.MinMaxRect(-18, -52, 18, -38);
-            var displays = new[] { "ak74", "svd", "mosin", "rpg7", "tt", "glock", "colt", "kabar", "butterfly", "shuriken", "kunai", "axe", "f1" };
+            var displays = new[] { "ak74", "m4a1", "awp", "pkm", "shotgun", "deagle", "katana", "uzi", "svd", "rpg7", "karambit", "machete", "glock", "kunai", "f1", "nagant" };
             int di = 0;
             foreach (float tz in new[] { -47f, -42.5f })
                 foreach (float tx in new[] { -10f, -3.4f, 3.4f, 10f })

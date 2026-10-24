@@ -86,6 +86,22 @@ namespace Arena
             Check("coins spent", Save.P.coins < 50000);
             yield return Wait(0.3f); yield return Shot("07_golden_ak");
             Menus.Shop(); yield return Wait(0.8f); yield return Shot("08_shop_owned"); Window.Close();
+            foreach (var wd in Defs.Weapons) { int n = Menus.PartsOf(wd.id); Check("model " + wd.id + ": " + n + " parts", n >= 100); }
+            yield return Gallery(Defs.Weapons.Select(x => (x.id, Defs.Skins[(Defs.Weapons.IndexOf(x) * 7 + 16) % Defs.Skins.Count].id)).ToList(), "11_weapons_gallery");
+            yield return Gallery(Defs.Skins.Skip(15).Select(sk => ("ak74", sk.id)).Concat(Defs.Skins.Skip(1).Take(5).Select(sk => ("deagle", sk.id))).ToList(), "12_skins_gallery");
+            Menus.Shop(); yield return Wait(0.8f);
+            var sv = UIRoot.Open != null ? UIRoot.Open.GetComponentInChildren<UnityEngine.UI.ScrollRect>() : null;
+            if (sv != null) { sv.verticalNormalizedPosition = 0; yield return Wait(0.3f); }
+            yield return Shot("13_shop_skin_tiles"); Window.Close();
+            // SVD optics + "УБРАТЬ ПРИЦЕЛ"
+            Save.SetSlot("primary", "svd"); p.BuildLoadout(false);
+            Look(new Vector3(0, 0.1f, 12), new Vector3(0, 1.5f, 28));
+            p.ZoomToggle = true; yield return Wait(0.6f);
+            Check("svd scope on", p.zoomed && p.AimOn);
+            yield return Shot("14_svd_scope_button");
+            p.AimOff(); yield return Wait(0.3f);
+            Check("УБРАТЬ ПРИЦЕЛ turns the scope off", !p.zoomed && !p.AimOn);
+            Save.SetSlot("primary", "ak74"); p.BuildLoadout(false);
             Menus.ShopSection("med"); yield return Wait(0.8f); yield return Shot("09_shop_medkits"); Window.Close();
 
             // vote → match on each map
@@ -96,6 +112,36 @@ namespace Arena
             Check("TOTAL fails=" + fails, fails == 0);
             yield return Wait(0.5f);
             Application.Quit();
+        }
+
+        /// <summary>Lays out weapons (with skins) on a wall-like grid in front of the camera and takes a screenshot.</summary>
+        IEnumerator Gallery(List<(string id, string skin)> items, string shot)
+        {
+            var p = PlayerCtl.I;
+            Look(new Vector3(0, 0.1f, -10.6f), new Vector3(0, 1.6f, -16));
+            var root = new GameObject("Gallery");
+            int cols = 6;
+            int rowsN = (items.Count + cols - 1) / cols;
+            for (int i = 0; i < items.Count; i++)
+            {
+                var holder = new GameObject("H").transform;
+                holder.SetParent(root.transform, false);
+                var m = Models.Weapon(items[i].id, items[i].skin, holder, 0);
+                var b = new Bounds(); bool first = true;
+                foreach (var r in m.GetComponentsInChildren<Renderer>()) { if (first) { b = r.bounds; first = false; } else b.Encapsulate(r.bounds); }
+                float k = 0.7f / Mathf.Max(0.05f, Mathf.Max(b.size.x, b.size.y, b.size.z));
+                m.transform.localScale = Vector3.one * k;
+                m.transform.position -= b.center * k;
+                holder.position = new Vector3(-1.9f + (i % cols) * 0.76f, 1.6f + (rowsN - 1) * 0.24f - (i / cols) * 0.48f, -12.5f);
+                holder.rotation = Quaternion.Euler(0, -90, 0) * Quaternion.Euler(-15, 0, 0);
+                if (items[i].id == "shuriken" || items[i].id.StartsWith("f1") || items[i].id == "rgd5") holder.rotation = Quaternion.Euler(-60, 20, 0);
+            }
+            var light = new GameObject("L").AddComponent<Light>();
+            light.type = LightType.Point; light.range = 10; light.intensity = 6; light.transform.position = new Vector3(0, 2.5f, -10.5f);
+            p.Slots.ForEach(_ => { });
+            yield return Wait(0.4f);
+            yield return Shot(shot);
+            Destroy(root); Destroy(light.gameObject);
         }
 
         IEnumerator Match(string map, int mode)
@@ -124,6 +170,7 @@ namespace Arena
             for (int i = 0; i < 40 && bot != null && g.M.stats[Save.P.id].x == kills0; i++)
             {
                 if (!bot.alive) break;
+                if (map == "maze") { bot.cc.enabled = false; bot.av.transform.position = new Vector3(0, 0.05f, 2f); bot.cc.enabled = true; }
                 var bp = bot.Pos;
                 Look(bp + new Vector3(0, 0, -3.2f), bp + Vector3.up * 1.2f);
                 p.Equip(0, true);

@@ -18,7 +18,7 @@ namespace Arena
         readonly List<UIButton> medBtns = new List<UIButton>();
         TextMeshProUGUI hpText, ammoText, wName, scoreA, scoreB, timer, coins, center, hint, toast, partyLbl, rangeTxt, modeTxt;
         RectTransform feed, slotsRow, touchRoot, scoreboard;
-        UIButton shopBtn, partyBtn, menuBtn, fireBtn, zoomBtn, scoreBtn;
+        UIButton shopBtn, partyBtn, menuBtn, fireBtn, zoomBtn, scoreBtn, aimOffBtn;
         readonly List<UIButton> slotBtns = new List<UIButton>();
         float dmgT, hitT, centerUntil, toastUntil;
         bool slotsDirty = true;
@@ -72,6 +72,12 @@ namespace Arena
             reticleDot = UIKit.Img(reticle, UIKit.Circle, new Color(0.3f, 1f, 0.5f, 1f), "Dot");
             UIKit.Place(reticleDot.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(12, 12));
             reticle.gameObject.SetActive(false);
+
+            // leave the scope (SVD / Mosin optics and every other sight)
+            aimOffBtn = UIKit.Button(root, Touch ? "УБРАТЬ ПРИЦЕЛ" : "УБРАТЬ ПРИЦЕЛ (ПКМ)", new Color(0.85f, 0.15f, 0.25f, 0.9f), () => PlayerCtl.I.AimOff(), 28);
+            UIKit.Place(aimOffBtn.Bg.rectTransform, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 205 + safe.y), new Vector2(360, 72));
+            aimOffBtn.FireOnDown = true;
+            aimOffBtn.gameObject.SetActive(false);
 
             hit = UIKit.Img(root, UIKit.Ring, new Color(1, 1, 1, 0), "HitMarker");
             UIKit.Place(hit.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(44, 44));
@@ -278,6 +284,7 @@ namespace Arena
             var rc = p.EnemyInSight ? new Color(1f, 0.2f, 0.25f, 1f) : new Color(0.3f, 1f, 0.5f, 0.95f);
             reticleRing.color = rc; reticleDot.color = rc;
             cross.gameObject.SetActive(!p.zoomed && p.alive);
+            aimOffBtn.gameObject.SetActive(p.AimOn && p.alive && !Menus.AnyOpen);
             bool inMatch = g.M != null;
             medRow.gameObject.SetActive(inMatch);
             for (int i = 0; i < medBtns.Count; i++)

@@ -10,3 +10,4 @@ release/
 web-publish/
 *.apk
 .DS_Store
+UnityProject/.utmp/

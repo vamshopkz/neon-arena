@@ -173,6 +173,18 @@ namespace Arena
         static GameObject previewModel;
         static string previewKey;
 
+        static readonly Dictionary<string, int> partsCache = new Dictionary<string, int>();
+        public static int PartsOf(string id)
+        {
+            if (partsCache.TryGetValue(id, out var n)) return n;
+            var tmp = new GameObject("count");
+            var m = Models.Weapon(id, "std", tmp.transform, 0);
+            n = m.GetComponent<WeaponInfo>().Parts;
+            Object.Destroy(tmp);
+            partsCache[id] = n;
+            return n;
+        }
+
         public static void ShopSection(string cat) { shopCat = cat; if (cat == "med") shopW = "med50"; Shop(); }
 
         public static void Shop()
@@ -213,7 +225,8 @@ namespace Arena
 
             bool owned = Save.Owns(wd.id);
             bool equipped = Save.Slot(wd.cat) == wd.id;
-            string stats = wd.type == WType.Melee ? $"Урон {wd.dmg} · ближний бой" : wd.Projectile ? $"Урон {wd.dmg}{(wd.splash > 0 ? " · взрыв " + wd.splash + " м" : "")} · штук {wd.mag}" : $"Урон {wd.dmg} · {wd.rate:0.#} выстр/с · магазин {wd.mag}{(wd.zoom > 0 ? " · оптика x" + wd.zoom : "")}";
+            int parts = PartsOf(wd.id);
+            string stats = "Деталей в модели: " + parts + " · " + (wd.type == WType.Melee ? $"Урон {wd.dmg} · ближний бой" : wd.Projectile ? $"Урон {wd.dmg}{(wd.splash > 0 ? " · взрыв " + wd.splash + " м" : "")} · штук {wd.mag}" : $"Урон {wd.dmg} · {wd.rate:0.#} выстр/с · магазин {wd.mag}{(wd.zoom > 0 ? " · оптика x" + wd.zoom : "")}{(wd.pellets > 1 ? " · дробь x" + wd.pellets : "")}");
             if (!owned)
                 w.Row(wd.name, stats + " · цена " + UIKit.Num(wd.price), "КУПИТЬ " + UIKit.Num(wd.price), UIKit.Gold, () =>
                 {
@@ -233,14 +246,7 @@ namespace Arena
                     Window.Refresh();
                 });
 
-            var sk = new List<(string, Color, bool, System.Action)>();
-            foreach (var s in Defs.Skins)
-            {
-                var sid = s.id;
-                bool has = Save.OwnsSkin(wd.id, sid);
-                sk.Add(((has ? "" : "") + s.name, s.tint * (has ? 1f : 0.7f), shopSkin == sid, () => { shopSkin = sid; Window.Refresh(); }));
-            }
-            w.Chips("Скины для «" + wd.name + "» (нажми, чтобы примерить)", sk);
+            SkinGrid(w, wd);
             var sd = Defs.S(shopSkin);
             int price = Defs.SkinPrice(wd.id, sd.id);
             bool hasSkin = Save.OwnsSkin(wd.id, sd.id);
@@ -265,6 +271,38 @@ namespace Arena
                     Window.Refresh();
                 });
             w.Footer.text = "Монеты: " + UIKit.Num(Save.P.coins) + "  ·  +" + Defs.RewardKill + " за победу над врагом, +" + Defs.RewardWin + " за выигранный бой";
+        }
+
+        /// <summary>Skin tiles with the real pattern picture, name and price (tap = try on in the preview).</summary>
+        static void SkinGrid(Window w, WeaponDef wd)
+        {
+            w.Text("Скины для «" + wd.name + "» — нажми на скин, чтобы примерить:", 26, UIKit.Cyan);
+            var box = UIKit.Rect("Skins", w.Content);
+            const int perRow = 6; const float cw = 190, ch = 176;
+            int rows = (Defs.Skins.Count + perRow - 1) / perRow;
+            box.gameObject.AddComponent<LayoutElement>().minHeight = rows * (ch + 10) + 6;
+            for (int i = 0; i < Defs.Skins.Count; i++)
+            {
+                var s = Defs.Skins[i];
+                var sid = s.id;
+                bool has = Save.OwnsSkin(wd.id, sid), sel = shopSkin == sid, wearing = Save.SkinOf(wd.id) == sid;
+                var tile = UIKit.Img(box, UIKit.Btn, sel ? UIKit.Gold : wearing ? UIKit.Lime : new Color(0.16f, 0.19f, 0.34f), "Skin " + sid, true);
+                UIKit.Place(tile.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(6 + (i % perRow) * (cw + 10), -6 - (i / perRow) * (ch + 10)), new Vector2(cw, ch));
+                var b = tile.gameObject.AddComponent<UIButton>();
+                b.Bg = tile;
+                b.OnClick = () => { shopSkin = sid; Window.Refresh(); };
+                var pic = UIKit.Rect("Pic", tile.transform).gameObject.AddComponent<RawImage>();
+                pic.texture = sid == "std" ? (Texture)Tex.Concrete() : Tex.Skin(sid);
+                pic.uvRect = new Rect(0, 0, 0.75f, 0.75f);
+                pic.raycastTarget = false;
+                UIKit.Place(pic.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -8), new Vector2(cw - 16, 104));
+                var nm = UIKit.Txt(tile.transform, s.name, 20, sel ? UIKit.Ink : Color.white, TMPro.TextAlignmentOptions.Center, !sel);
+                UIKit.Place(nm.rectTransform, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 30), new Vector2(cw - 10, 30));
+                nm.enableAutoSizing = true; nm.fontSizeMin = 12; nm.fontSizeMax = 20;
+                int price = Defs.SkinPrice(wd.id, sid);
+                var pr = UIKit.Txt(tile.transform, wearing ? "НАДЕТ" : has ? "куплен" : price + " монет", 18, sel ? UIKit.Ink : has ? UIKit.Lime : UIKit.Gold, TMPro.TextAlignmentOptions.Center, false);
+                UIKit.Place(pr.rectTransform, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 6), new Vector2(cw - 10, 26));
+            }
         }
 
         static void FillMedkits(Window w)

@@ -51,6 +51,7 @@ namespace Arena
             Clip("error", 0.3f, t => Mathf.Sign(Mathf.Sin(t * 2 * Mathf.PI * 160)) * 0.18f * Env(t, 0.005f, 0.12f));
             Clip("rifle", 0.22f, t => (Low(0.6f) * 0.9f + Mathf.Sin(t * 2 * Mathf.PI * (140 - t * 300)) * 0.6f) * Env(t, 0.001f, 0.045f));
             Clip("pistol", 0.18f, t => (Low(0.75f) * 0.7f + Mathf.Sin(t * 2 * Mathf.PI * (220 - t * 600)) * 0.4f) * Env(t, 0.001f, 0.035f));
+            Clip("shotgun", 0.5f, t => (Low(0.4f) * 1.3f + Mathf.Sin(t * 2 * Mathf.PI * (110 - t * 120)) * 0.7f) * Env(t, 0.001f, 0.09f));
             Clip("sniper", 0.6f, t => (Low(0.35f) * 1.1f + Mathf.Sin(t * 2 * Mathf.PI * (90 - t * 80)) * 0.7f) * Env(t, 0.001f, 0.12f));
             Clip("rocket", 0.7f, t => (Low(0.15f) * 0.9f + Mathf.Sin(t * 2 * Mathf.PI * (300 - t * 300)) * 0.15f) * Env(t, 0.01f, 0.25f));
             Clip("boom", 1.4f, t => (Low(0.06f) * 2.2f + Mathf.Sin(t * 2 * Mathf.PI * (70 - t * 40)) * 0.8f) * Env(t, 0.002f, 0.35f));

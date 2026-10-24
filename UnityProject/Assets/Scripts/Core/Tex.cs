@@ -504,6 +504,201 @@ namespace Arena
                             cv.px[y * S + x] = Color.Lerp(c, Hex("a87418"), Mathf.Clamp01((f - 0.6f) * 3) * 0.5f);
                         }
                     break;
+                case "tiger":
+                    for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+                            cv.px[y * S + x] = Color.Lerp(Hex("f08a1c"), Hex("ffc45a"), Fbm(x / 64f, y / 64f, 4, 3) * 0.8f);
+                    for (int k = 0; k < 14; k++)
+                    {
+                        float x0 = k * S / 14f + r.F(-6, 6), ph = r.F(0, 6), w = r.F(5, 11);
+                        float y0 = r.F(0, S * 0.3f), y1 = y0 + r.F(S * 0.35f, S * 0.75f);
+                        for (float y = y0; y < y1; y += 1.5f)
+                        {
+                            float t = (y - y0) / (y1 - y0);
+                            float ww = w * Mathf.Sin(t * Mathf.PI) + 1;
+                            cv.Circle(x0 + Mathf.Sin(y * 0.05f + ph) * 10, y, ww * 0.5f, Hex("140a04"));
+                        }
+                    }
+                    break;
+                case "flames":
+                    for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+                        {
+                            float v = y / (float)S;
+                            float f = Fbm(x / 28f, y / 18f, 9, 21) * 1.25f - v * 0.95f + 0.25f;
+                            Color c = Hex("0d0606");
+                            if (f > 0.25f) c = Color.Lerp(Hex("8a0d05"), Hex("ff3d00"), Mathf.Clamp01((f - 0.25f) * 6));
+                            if (f > 0.42f) c = Color.Lerp(Hex("ff7a00"), Hex("ffe066"), Mathf.Clamp01((f - 0.42f) * 6));
+                            if (f > 0.58f) c = Color.Lerp(Hex("ffe066"), Color.white, Mathf.Clamp01((f - 0.58f) * 5));
+                            cv.px[y * S + x] = c;
+                        }
+                    break;
+                case "dragon":
+                    for (int i = 0; i < cv.px.Length; i++) cv.px[i] = Hex("0c2a14");
+                    for (int row = 13; row >= -1; row--)
+                        for (int col = -1; col < 13; col++)
+                        {
+                            float cx = col * 22 + (row % 2) * 11, cy = row * 18;
+                            for (int j = 0; j < 12; j++) cv.Circle(cx, cy - j * 0.4f, 12 - j * 0.9f, Color.Lerp(Hex("1d6b35"), Hex("7fd36a"), j / 11f));
+                            cv.Ring(cx, cy, 11.5f, 1.6f, Hex("d6a83a"));
+                        }
+                    cv.Circle(180, 90, 30, Hex("ffcc33")); cv.Circle(180, 90, 22, Hex("ff8800"));
+                    cv.Rect(176, 64, 8, 52, Hex("120800")); cv.Ring(180, 90, 30, 3, Hex("3a2000"));
+                    break;
+                case "neon":
+                    for (int y = 0; y < S; y++) for (int x = 0; x < S; x++) cv.px[y * S + x] = Color.Lerp(Hex("05031a"), Hex("140a35"), y / (float)S);
+                    for (int k = 0; k < 12; k++)
+                    {
+                        var c = k % 2 == 0 ? Hex("29f0ff") : Hex("ff2fd2");
+                        float x = r.F() * S, y = r.F() * S;
+                        for (int s = 0; s < 5; s++)
+                        {
+                            int dir = r.I(4); float len = r.F(20, 60);
+                            float nx = x + (dir == 0 ? len : dir == 1 ? -len : len * 0.7f), ny = y + (dir == 2 ? len : dir == 3 ? -len : len * 0.7f * (s % 2 == 0 ? 1 : -1));
+                            cv.Line(x, y, nx, ny, 9, new Color(c.r, c.g, c.b, 0.18f));
+                            cv.Line(x, y, nx, ny, 3, c);
+                            cv.Line(x, y, nx, ny, 1, Color.white);
+                            x = nx; y = ny;
+                        }
+                        cv.Circle(x, y, 4, Color.white);
+                    }
+                    break;
+                case "hex":
+                    for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+                        {
+                            float hx = x / 18f, hy = y / 18f * 1.1547f;
+                            float qx = hx - hy * 0.5f, qy = hy;
+                            float rx = Mathf.Round(qx), ry = Mathf.Round(qy), rz = Mathf.Round(-qx - qy);
+                            float dx = Mathf.Abs(rx - qx), dy = Mathf.Abs(ry - qy), dz = Mathf.Abs(rz + qx + qy);
+                            float edge = Mathf.Max(dx, Mathf.Max(dy, dz));
+                            var c = Color.Lerp(Hex("1b1b1b"), Hex("3a3020"), Fbm(rx * 3, ry * 3, 64, 4));
+                            cv.px[y * S + x] = edge > 0.42f ? Hex("e8b923") : c;
+                        }
+                    break;
+                case "zebra":
+                    for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+                        {
+                            float v = Mathf.Sin(x * 0.11f + Fbm(x / 40f, y / 40f, 6, 8) * 9 + Mathf.Sin(y * 0.03f) * 2);
+                            cv.px[y * S + x] = v > 0.25f ? Hex("101010") : Hex("f4f2ea");
+                        }
+                    break;
+                case "leopard":
+                    for (int y = 0; y < S; y++) for (int x = 0; x < S; x++) cv.px[y * S + x] = Color.Lerp(Hex("d9a85a"), Hex("f0cd8a"), Fbm(x / 50f, y / 50f, 5, 2));
+                    for (int k = 0; k < 34; k++)
+                    {
+                        float cx = r.F() * S, cy = r.F() * S, rad = r.F(7, 12);
+                        cv.Circle(cx, cy, rad * 0.8f, Hex("a8622a"));
+                        for (int j = 0; j < 5; j++) { float a = j * 1.26f + r.F(); cv.Circle(cx + Mathf.Cos(a) * rad, cy + Mathf.Sin(a) * rad, r.F(2.5f, 4.5f), Hex("1a0f06")); }
+                    }
+                    break;
+                case "ice":
+                {
+                    var pts = new List<Vector2>();
+                    for (int k = 0; k < 24; k++) pts.Add(new Vector2(r.F() * S, r.F() * S));
+                    for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+                        {
+                            float d1 = 1e9f, d2 = 1e9f;
+                            foreach (var p in pts) { float d = Vector2.Distance(p, new Vector2(x, y)); if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d; }
+                            var c = Color.Lerp(Hex("bfe6ff"), Hex("6fb6ea"), d1 / 60f);
+                            if (d2 - d1 < 1.6f) c = Color.white;
+                            cv.px[y * S + x] = c;
+                        }
+                    for (int k = 0; k < 40; k++) cv.Circle(r.F() * S, r.F() * S, r.F(0.6f, 1.4f), Color.white);
+                    break;
+                }
+                case "toxic":
+                    for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+                        {
+                            float f = Fbm(x / 36f, y / 36f, 7, 33);
+                            cv.px[y * S + x] = f > 0.55f ? Color.Lerp(Hex("6cff2a"), Hex("d4ff7a"), (f - 0.55f) * 4) : Color.Lerp(Hex("071a08"), Hex("0f3a12"), f);
+                        }
+                    for (int k = 0; k < 14; k++) { float x = r.F() * S, y = r.F() * S, len = r.F(15, 45); cv.Line(x, y, x, y - len, 5, Hex("6cff2a")); cv.Circle(x, y - len, 4.5f, Hex("b6ff5a")); }
+                    for (int k = 0; k < 4; k++)
+                    {
+                        float cx = r.F() * S, cy = r.F() * S;
+                        cv.Ring(cx, cy, 16, 4, Hex("ffe600"));
+                        for (int j = 0; j < 3; j++) { float a = j * 2.094f; cv.Circle(cx + Mathf.Cos(a) * 9, cy + Mathf.Sin(a) * 9, 6, Hex("ffe600")); }
+                        cv.Circle(cx, cy, 3.5f, Hex("071a08"));
+                    }
+                    break;
+                case "money":
+                    for (int i = 0; i < cv.px.Length; i++) cv.px[i] = Hex("2e4a2a");
+                    for (int row = 0; row < 6; row++)
+                        for (int col = 0; col < 3; col++)
+                        {
+                            float bx = col * 90 + (row % 2) * 45 - 20, by = row * 45 - 10;
+                            cv.Rect(bx, by, 84, 40, Hex("bcd3a8"));
+                            cv.Rect(bx + 3, by + 3, 78, 34, Hex("8fb07a"));
+                            cv.Rect(bx + 5, by + 5, 74, 30, Hex("d6e6c4"));
+                            cv.Circle(bx + 42, by + 20, 11, Hex("6f8f5f"));
+                            cv.Circle(bx + 42, by + 23, 5, Hex("d6e6c4")); cv.Rect(bx + 36, by + 12, 12, 7, Hex("d6e6c4"));
+                            // "$" signs in the corners
+                            foreach (var (sx, sy) in new[] { (bx + 13, by + 20), (bx + 71, by + 20) })
+                            {
+                                var g2 = Hex("2e5a2a");
+                                cv.Line(sx + 5, sy + 7, sx - 4, sy + 7, 2.2f, g2); cv.Line(sx - 4, sy + 7, sx - 4, sy + 1, 2.2f, g2);
+                                cv.Line(sx - 4, sy + 1, sx + 4, sy - 1, 2.2f, g2); cv.Line(sx + 4, sy - 1, sx + 4, sy - 7, 2.2f, g2);
+                                cv.Line(sx + 4, sy - 7, sx - 5, sy - 7, 2.2f, g2); cv.Line(sx, sy + 10, sx, sy - 10, 1.6f, g2);
+                            }
+                        }
+                    break;
+                case "hearts":
+                    for (int y = 0; y < S; y++) for (int x = 0; x < S; x++) cv.px[y * S + x] = Color.Lerp(Hex("ffb3d1"), Hex("ffd6e7"), y / (float)S);
+                    for (int k = 0; k < 30; k++)
+                    {
+                        float cx = r.F() * S, cy = r.F() * S, sz = r.F(6, 15);
+                        var c = k % 3 == 0 ? Hex("e8124f") : k % 3 == 1 ? Hex("ff4f8a") : Hex("ffffff");
+                        cv.Circle(cx - sz * 0.5f, cy + sz * 0.3f, sz * 0.58f, c); cv.Circle(cx + sz * 0.5f, cy + sz * 0.3f, sz * 0.58f, c);
+                        for (int j = 0; j < (int)(sz * 1.2f); j++) { float t = j / (sz * 1.2f); cv.Rect(cx - sz * (1.05f - t), cy - j + sz * 0.2f, sz * 2 * (1.05f - t), 1, c); }
+                        if (k % 3 != 2) cv.Circle(cx - sz * 0.55f, cy + sz * 0.5f, sz * 0.18f, new Color(1, 1, 1, 0.7f));
+                    }
+                    break;
+                case "snowcamo":
+                    for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+                        {
+                            float a = Fbm(x / 30f, y / 30f, 8, 41), b = Fbm(x / 22f + 7, y / 22f, 12, 42);
+                            var c = Hex("eef1f4");
+                            if (a > 0.55f) c = Hex("b9c2cc");
+                            if (b > 0.62f) c = Hex("7d8794");
+                            if (a < 0.3f) c = Hex("dfe5ea");
+                            cv.px[y * S + x] = c;
+                        }
+                    break;
+                case "ocean":
+                    for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+                        {
+                            float w = Mathf.Sin(x * 0.05f + Mathf.Sin(y * 0.09f) * 2 + y * 0.12f);
+                            var c = Color.Lerp(Hex("063a7a"), Hex("1b8ad6"), y / (float)S + Fbm(x / 40f, y / 40f, 6, 5) * 0.4f - 0.2f);
+                            if (w > 0.92f) c = Color.Lerp(c, Color.white, (w - 0.92f) * 12);
+                            cv.px[y * S + x] = c;
+                        }
+                    for (int k = 0; k < 60; k++) cv.Circle(r.F() * S, r.F() * S, r.F(1, 2.5f), new Color(1, 1, 1, 0.6f));
+                    break;
+                case "graffiti":
+                {
+                    for (int y = 0; y < S; y++) for (int x = 0; x < S; x++) cv.px[y * S + x] = Color.Lerp(Hex("6d7076"), Hex("8d9096"), Fbm(x / 20f, y / 20f, 12, 9));
+                    string[] cols = { "ff2fd2", "29f0ff", "ffe600", "7cff5a", "ff6a00", "8b5cff" };
+                    for (int k = 0; k < 9; k++)
+                    {
+                        var c = Hex(cols[k % cols.Length]);
+                        float x = r.F() * S, y = r.F() * S;
+                        for (int s = 0; s < 6; s++)
+                        {
+                            float nx = x + r.F(-40, 40), ny = y + r.F(-30, 30);
+                            cv.Line(x, y, nx, ny, 14, Hex("111111")); cv.Line(x, y, nx, ny, 10, c);
+                            x = nx; y = ny;
+                        }
+                        for (int d = 0; d < 3; d++) { float dx = x + r.F(-10, 10); cv.Line(dx, y, dx, y - r.F(10, 30), 3, c); }
+                    }
+                    for (int k = 0; k < 120; k++) cv.Circle(r.F() * S, r.F() * S, r.F(0.5f, 2f), Hex(cols[r.I(cols.Length)]));
+                    break;
+                }
+                case "chrome":
+                    for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+                        {
+                            float v = (y + Mathf.Sin(x * 0.04f) * 10) / S;
+                            Color c = v < 0.45f ? Color.Lerp(Hex("2a2d33"), Hex("9aa2ad"), v / 0.45f) : v < 0.5f ? Color.Lerp(Hex("f4f8ff"), Hex("ffffff"), (v - 0.45f) * 20) : Color.Lerp(Hex("cfd6e0"), Hex("6a7280"), (v - 0.5f) * 2);
+                            cv.px[y * S + x] = c;
+                        }
+                    break;
                 default:
                     for (int i = 0; i < cv.px.Length; i++) cv.px[i] = Hex("3a3d43");
                     cv.Noise(r, 0.04f);
@@ -529,6 +724,12 @@ namespace Arena
                 case "lava": m = Mats.Emissive(t, Color.white, new Color(1.6f, 0.8f, 0.3f), t, 0.3f); break;
                 case "cosmic": m = Mats.Emissive(t, Color.white, new Color(0.7f, 0.7f, 0.9f), t, 0.6f); break;
                 case "circuit": m = Mats.Tex(t, Color.white, 0.5f, 0.3f); break;
+                case "neon": m = Mats.Emissive(t, Color.white, new Color(1.4f, 1.4f, 1.4f), t, 0.6f); break;
+                case "toxic": m = Mats.Emissive(t, Color.white, new Color(0.9f, 1.2f, 0.9f), t, 0.5f); break;
+                case "flames": m = Mats.Emissive(t, Color.white, new Color(0.8f, 0.5f, 0.3f), t, 0.4f); break;
+                case "chrome": m = Mats.Tex(t, Color.white, 0.95f, 0.5f); break;
+                case "ice": m = Mats.Tex(t, Color.white, 0.9f, 0.15f); break;
+                case "dragon": m = Mats.Tex(t, Color.white, 0.6f, 0.3f); break;
                 default: m = Mats.Tex(t, Color.white, 0.45f, 0.2f); break;
             }
             skinMats[id] = m;
