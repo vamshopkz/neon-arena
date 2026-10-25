@@ -243,7 +243,9 @@ namespace Arena
             {
                 if (!bot.alive) break;
                 var bp = bot.Pos;
-                Look(bp + new Vector3(0, 0, -3.2f), bp + Vector3.up * 1.2f);
+                var toC = new Vector3(g.Cur.bounds.center.x - bp.x, 0, g.Cur.bounds.center.y - bp.z);
+                var off = toC.sqrMagnitude > 0.1f ? toC.normalized * 3.2f : new Vector3(0, 0, -3.2f);
+                Look(bp + off, bp + Vector3.up * 1.2f);
                 p.Equip(0, true); p.Slots[0].next = 0; p.Slots[0].ammo = Mathf.Max(p.Slots[0].ammo, 5); p.Slots[0].reloadEnd = 0;
                 p.FireTap = true;
                 yield return null; yield return null;
