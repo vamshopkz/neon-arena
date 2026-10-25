@@ -207,10 +207,10 @@ namespace Arena
                 if (vel.y < -2) vel.y = -2;
                 if (jump) { vel.y = 6.4f; AudioFx.Play("jump", 0.5f); }
             }
-            vel.y -= 20 * dt;
+            vel.y -= (g != null && g.Cur != null ? g.Cur.gravity : 20f) * dt;
             if (alive && CC.enabled) CC.Move(vel * dt);
             if (CC.isGrounded && vel.y < -2) vel.y = -2;
-            if (transform.position.y < -20 && g != null) g.FellOut();
+            if (g != null && g.Cur != null && transform.position.y < g.Cur.fallY) g.FellOut();
 
             // footsteps
             if (CC.isGrounded && Moving) { stepT += dt * new Vector2(vel.x, vel.z).magnitude; if (stepT > 2.4f) { stepT = 0; AudioFx.Play("step", 0.35f); } }

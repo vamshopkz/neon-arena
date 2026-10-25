@@ -331,6 +331,88 @@ namespace Arena
             return cv.Tex();
         });
 
+        /// <summary>Building facade: 2 floors × 2 windows per tile (some lit).</summary>
+        public static Texture2D Facade(string wall) => C("facade" + wall, () =>
+        {
+            var r = new Rng(wall.GetHashCode());
+            var cv = new Canvas2(256, 256, Hex(wall));
+            cv.Noise(r, 0.04f);
+            for (int fy = 0; fy < 2; fy++)
+                for (int fx = 0; fx < 2; fx++)
+                {
+                    float x = fx * 128 + 22, y = fy * 128 + 30;
+                    cv.Rect(x - 6, y - 6, 96, 82, Hex("2b2f36"));
+                    bool lit = r.F() < 0.3f;
+                    var gl = lit ? Hex("ffd98a") : Color.Lerp(Hex("41607e"), Hex("8fb3d1"), r.F());
+                    cv.Rect(x, y, 40, 70, gl); cv.Rect(x + 44, y, 40, 70, gl);
+                    cv.Rect(x, y + 34, 84, 3, Hex("2b2f36"));
+                    cv.Rect(x - 8, y - 10, 100, 6, Hex("d9d4c8"));
+                }
+            return cv.Tex();
+        });
+
+        public static Texture2D Asphalt() => Speckle("asphalt", "3a3c40", new[] { "2d2f33", "4a4c51", "55575c" }, 2500, 0.5f, 1.4f, 0.05f, 71);
+        public static Texture2D Snow() => Speckle("snow", "eef3f8", new[] { "dfe8f1", "ffffff", "d3dee9" }, 900, 0.8f, 2.4f, 0.02f, 72);
+        public static Texture2D MoonGround() => C("moon", () =>
+        {
+            var r = new Rng(73);
+            var cv = new Canvas2(256, 256, Hex("8c8c8c"));
+            for (int y = 0; y < 256; y++) for (int x = 0; x < 256; x++)
+                {
+                    float f = Fbm(x / 32f, y / 32f, 8, 74);
+                    float g = 0.42f + f * 0.25f;
+                    cv.px[y * 256 + x] = new Color(g, g, g * 1.02f, 1);
+                }
+            for (int i = 0; i < 26; i++)
+            {
+                float cx = r.F() * 256, cy = r.F() * 256, rad = r.F(4, 22);
+                cv.Circle(cx, cy, rad, new Color(0.3f, 0.3f, 0.31f, 0.5f));
+                cv.Ring(cx, cy, rad, 2.5f, new Color(0.75f, 0.75f, 0.76f, 0.6f));
+            }
+            cv.Noise(r, 0.05f);
+            return cv.Tex();
+        });
+
+        /// <summary>Corrugated container steel (vertical ribs).</summary>
+        public static Texture2D Corrugated(string col) => C("corr" + col, () =>
+        {
+            var b = Hex(col);
+            var cv = new Canvas2(128, 128, b);
+            for (int y = 0; y < 128; y++) for (int x = 0; x < 128; x++)
+                {
+                    float rib = Mathf.Sin(x / 128f * Mathf.PI * 2 * 8) * 0.12f;
+                    float rust = Mathf.Clamp01((Fbm(x / 16f, y / 16f, 8, col.GetHashCode() & 255) - 0.62f) * 4);
+                    var c = new Color(b.r + rib, b.g + rib, b.b + rib, 1);
+                    cv.px[y * 128 + x] = Color.Lerp(c, Hex("6b3a1c"), rust * 0.7f);
+                }
+            return cv.Tex();
+        });
+
+        public static Texture2D Logs() => C("logs", () =>
+        {
+            var cv = new Canvas2(128, 128, Hex("6e4526"));
+            for (int y = 0; y < 128; y++) for (int x = 0; x < 128; x++)
+                {
+                    float row = (y % 32) / 32f;
+                    float shade = Mathf.Sin(row * Mathf.PI) * 0.35f + 0.65f;
+                    float grain = Fbm(x / 20f, y / 4f, 8, 81) * 0.25f;
+                    var c = Hex("7a4d2a");
+                    cv.px[y * 128 + x] = new Color(c.r * shade + grain * 0.2f, c.g * shade + grain * 0.15f, c.b * shade + grain * 0.1f, 1);
+                }
+            return cv.Tex();
+        });
+
+        public static Texture2D Water() => C("water", () =>
+        {
+            var cv = new Canvas2(256, 256, Hex("1f5f8f"));
+            for (int y = 0; y < 256; y++) for (int x = 0; x < 256; x++)
+                {
+                    float w = Mathf.Sin(x * 0.07f + Fbm(x / 32f, y / 32f, 8, 91) * 8) * 0.5f + 0.5f;
+                    cv.px[y * 256 + x] = Color.Lerp(Hex("17507a"), Hex("3c8fbf"), w * 0.7f);
+                }
+            return cv.Tex();
+        });
+
         public static Texture2D Glow() => C("glow", () =>
         {
             var cv = new Canvas2(64, 64, new Color(1, 1, 1, 0));

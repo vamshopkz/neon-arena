@@ -28,6 +28,7 @@ namespace Arena
         public int mode, teamMode;
         public float endAt;
         public readonly Dictionary<string, string> votes = new Dictionary<string, string>();
+        public readonly Dictionary<string, int> picks = new Dictionary<string, int>();   // chosen team per player (1 blue, 2 orange)
         public string result;
     }
 
@@ -169,8 +170,8 @@ namespace Arena
         void HostQueue(int mode, string from)
         {
             if (hv != null || M != null) return;
-            hv = new VoteView { mode = mode, endAt = Time.time + 15f };
-            HostAll("VS", mode.ToString(), "15", "0");
+            hv = new VoteView { mode = mode, endAt = Time.time + 20f };
+            HostAll("VS", mode.ToString(), "20", "0");
         }
 
         public void Vote(string map)
@@ -190,6 +191,23 @@ namespace Arena
             if (N.Members.Keys.All(m => hv.votes.ContainsKey(m))) hv.endAt = Mathf.Min(hv.endAt, Time.time + 1.2f);
         }
 
+        /// <summary>"Я за СИНИХ / ОРАНЖЕВЫХ": friends who pick the same colour play in one team.</summary>
+        public void PickTeam(int team)
+        {
+            if (V == null || V.result != null) return;
+            if (team == 0) V.picks.Remove(Me); else V.picks[Me] = team;
+            AudioFx.Play("click");
+            if (IsHost) HostTeamPick(Me, team); else N.SendR("TP", team.ToString());
+            Menus.UpdateVote();
+        }
+
+        void HostTeamPick(string id, int team)
+        {
+            if (hv == null || hv.result != null) return;
+            if (team == 0) hv.picks.Remove(id); else hv.picks[id] = team;
+            BroadcastVotes();
+        }
+
         public void SetTeamMode(int tm)
         {
             if (!IsHost || hv == null) return;
@@ -201,7 +219,9 @@ namespace Arena
         {
             var sb = new StringBuilder();
             foreach (var kv in hv.votes) sb.Append(kv.Key).Append(':').Append(kv.Value).Append(';');
-            HostAll("VU", hv.teamMode.ToString(), sb.ToString());
+            var sp = new StringBuilder();
+            foreach (var kv in hv.picks) sp.Append(kv.Key).Append(':').Append(kv.Value).Append(';');
+            HostAll("VU", hv.teamMode.ToString(), sb.ToString(), sp.ToString());
         }
 
         public void CancelVote()
@@ -234,13 +254,20 @@ namespace Arena
             var humans = N.Members.Values.OrderBy(m => m.id == Me ? 0 : 1).ThenBy(m => m.id).ToList();
             var teams = new List<(string id, int team, string name)>();
             int ca = 0, cb = 0;
-            for (int i = 0; i < humans.Count; i++)
+            // players who picked a colour go there; the rest are spread by the team mode
+            foreach (var h in humans.Where(h => v.picks.ContainsKey(h.id)))
+            {
+                int t = v.picks[h.id];
+                if (t == 1) ca++; else cb++;
+                teams.Add((h.id, t, h.name ?? h.id));
+            }
+            foreach (var h in humans.Where(h => !v.picks.ContainsKey(h.id)))
             {
                 int t;
-                if (v.teamMode == 1) t = ca < mode ? 1 : 2;
-                else t = i % 2 == 0 ? 1 : 2;
+                if (v.teamMode == 1) t = ca < mode || cb > 0 && ca <= cb ? 1 : 2;
+                else t = ca <= cb ? 1 : 2;
                 if (t == 1) ca++; else cb++;
-                teams.Add((humans[i].id, t, humans[i].name ?? humans[i].id));
+                teams.Add((h.id, t, h.name ?? h.id));
             }
             int size = Mathf.Max(mode, Mathf.Max(ca, cb));
             var sbT = new StringBuilder();
@@ -882,6 +909,9 @@ namespace Arena
                     V = new VoteView { mode = Net.PI(a[0]), endAt = Time.time + Net.PF(a[1]), teamMode = Net.PI(a[2]) };
                     Menus.ShowVote();
                     break;
+                case "TP" when IsHost:
+                    HostTeamPick(from, Net.PI(a[0]));
+                    break;
                 case "VT" when IsHost:
                     HostVote(from, a[0]);
                     break;
@@ -889,6 +919,8 @@ namespace Arena
                     V.teamMode = Net.PI(a[0]);
                     V.votes.Clear();
                     foreach (var e in a[1].Split(';')) { var p = e.Split(':'); if (p.Length == 2) V.votes[p[0]] = p[1]; }
+                    V.picks.Clear();
+                    if (a.Length > 2) foreach (var e in a[2].Split(';')) { var p = e.Split(':'); if (p.Length == 2) V.picks[p[0]] = Net.PI(p[1]); }
                     Menus.UpdateVote();
                     break;
                 case "VC" when fromHost:

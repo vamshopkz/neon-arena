@@ -125,6 +125,11 @@ namespace Arena
             new MapDef { id = "maze", name = "Лабиринт", desc = "Узкие коридоры, засады за углом" },
             new MapDef { id = "stadium", name = "Стадион", desc = "Гол мячом = +3 очка команде" },
             new MapDef { id = "forest", name = "Лес", desc = "Ёлки, заборы, аптечки у палатки" },
+            new MapDef { id = "city", name = "Город", desc = "Улицы, дома и машины-укрытия" },
+            new MapDef { id = "warehouse", name = "Склад", desc = "Контейнеры, можно залезть наверх" },
+            new MapDef { id = "moon", name = "Лунная станция", desc = "Низкая гравитация — высокие прыжки" },
+            new MapDef { id = "winter", name = "Зимняя деревня", desc = "Избы, снеговики, замёрзшее озеро" },
+            new MapDef { id = "ship", name = "Пиратский корабль", desc = "Бой на палубе, за бортом — вода" },
         };
 
         public static readonly string[] BotNames = { "Бот Вася", "Бот Петя", "Бот Жора", "Бот Рома", "Бот Тима", "Бот Саня", "Бот Гоша", "Бот Лёха", "Бот Дима", "Бот Миша", "Бот Костя", "Бот Артём" };

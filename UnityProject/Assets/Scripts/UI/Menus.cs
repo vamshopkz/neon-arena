@@ -438,54 +438,73 @@ namespace Arena
             UIKit.Place(timer.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -100), new Vector2(800, 44));
             vote.GetComponent<VoteTicker>().timer = timer;
             var n = Net.I;
-            float cw = 360, gap = 24, total = Defs.Maps.Count * cw + (Defs.Maps.Count - 1) * gap;
+            // 9 locations in two rows (5 + 4)
+            float cw = 284, ch = 222, gap = 14;
             for (int i = 0; i < Defs.Maps.Count; i++)
             {
                 var md = Defs.Maps[i];
                 var id = md.id;
+                int row = i < 5 ? 0 : 1, inRow = row == 0 ? 5 : Defs.Maps.Count - 5, col = row == 0 ? i : i - 5;
+                float rowW = inRow * cw + (inRow - 1) * gap;
                 bool mine = v.votes.TryGetValue(Save.P.id, out var my) && my == id;
                 bool chosen = v.result == id;
                 var card = UIKit.Img(r, UIKit.Panel, chosen ? UIKit.Gold : mine ? UIKit.Lime : Color.white, "Card " + id, true);
-                UIKit.Place(card.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 0.5f), new Vector2(-total / 2 + i * (cw + gap), -10), new Vector2(cw, 560));
+                UIKit.Place(card.rectTransform, new Vector2(0.5f, 1), new Vector2(0, 1), new Vector2(-rowW / 2 + col * (cw + gap), -148 - row * (ch + gap)), new Vector2(cw, ch));
                 var btn = card.gameObject.AddComponent<UIButton>();
                 btn.Bg = card;
                 btn.OnClick = () => Game.I.Vote(id);
                 var img = UIKit.Rect("Img", card.transform).gameObject.AddComponent<RawImage>();
                 img.texture = Resources.Load<Texture2D>("Maps/" + id);
                 img.raycastTarget = false;
-                UIKit.Place(img.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -14), new Vector2(cw - 28, 300));
-                if (img.texture != null) { float asp = (float)img.texture.width / img.texture.height; img.uvRect = asp > (cw - 28) / 300f ? new Rect(0.5f - (cw - 28) / 300f / asp / 2, 0, (cw - 28) / 300f / asp, 1) : new Rect(0, 0.5f - asp / ((cw - 28) / 300f) / 2, 1, asp / ((cw - 28) / 300f)); }
-                var nm = UIKit.Txt(card.transform, (Hud.Touch ? "" : (i + 1) + ". ") + md.name, 40, Color.white);
-                UIKit.Place(nm.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -320), new Vector2(cw - 20, 56));
-                var ds = UIKit.Txt(card.transform, md.desc, 22, UIKit.Muted, TextAlignmentOptions.Top, false);
-                UIKit.Place(ds.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -378), new Vector2(cw - 30, 60));
+                float iw = cw - 20, ih = 116;
+                UIKit.Place(img.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -10), new Vector2(iw, ih));
+                if (img.texture != null) { float asp = (float)img.texture.width / img.texture.height, want = iw / ih; img.uvRect = asp > want ? new Rect(0.5f - want / asp / 2, 0, want / asp, 1) : new Rect(0, 0.5f - asp / want / 2, 1, asp / want); }
+                var nm = UIKit.Txt(card.transform, (Hud.Touch ? "" : (i + 1) + ". ") + md.name, 28, Color.white);
+                UIKit.Place(nm.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -128), new Vector2(cw - 12, 36));
+                nm.enableAutoSizing = true; nm.fontSizeMin = 16; nm.fontSizeMax = 28;
+                var ds = UIKit.Txt(card.transform, md.desc, 17, UIKit.Muted, TextAlignmentOptions.Top, false);
+                UIKit.Place(ds.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -163), new Vector2(cw - 16, 24));
                 var voters = v.votes.Where(kv => kv.Value == id).Select(kv => kv.Key == Save.P.id ? "ты" : n.NameOf(kv.Key)).ToList();
-                var vt = UIKit.Txt(card.transform, voters.Count > 0 ? "Голоса: " + string.Join(", ", voters) : "Нет голосов", 24, voters.Count > 0 ? UIKit.Lime : UIKit.Muted, TextAlignmentOptions.Top, false);
-                UIKit.Place(vt.rectTransform, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 16), new Vector2(cw - 30, 100));
-                if (chosen)
-                {
-                    var tag = UIKit.Txt(card.transform, "ВЫБРАНО!", 40, UIKit.Gold);
-                    UIKit.Place(tag.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 150), new Vector2(cw, 60));
-                }
+                var vt = UIKit.Txt(card.transform, chosen ? "ВЫБРАНО!" : voters.Count > 0 ? "Голоса: " + string.Join(", ", voters) : "", chosen ? 24 : 18, chosen ? UIKit.Gold : UIKit.Lime, TextAlignmentOptions.Center, chosen);
+                UIKit.Place(vt.rectTransform, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 6), new Vector2(cw - 12, 28));
             }
-            // team mode + cancel
-            string tm = v.teamMode == 0 ? "Команды: друзья ПРОТИВ друг друга (остальные места — боты)" : "Команды: друзья ВМЕСТЕ против ботов";
+
+            // teams: everyone can pick a colour — friends with the same colour play together
+            v.picks.TryGetValue(Save.P.id, out int myPick);
+            if (v.result == null)
+            {
+                var lbl = UIKit.Txt(r, "Твоя команда:", 26, Color.white, TextAlignmentOptions.MidlineRight);
+                UIKit.Place(lbl.rectTransform, new Vector2(0.5f, 0), new Vector2(1, 0), new Vector2(-330, 122), new Vector2(240, 64));
+                var pa = UIKit.Button(r, "ЗА СИНИХ", myPick == 1 ? Defs.TeamA : Defs.TeamA * 0.45f, () => Game.I.PickTeam(1), 26);
+                UIKit.Place(pa.Bg.rectTransform, new Vector2(0.5f, 0), new Vector2(1, 0), new Vector2(-110, 118), new Vector2(210, 68));
+                var pb = UIKit.Button(r, "ЗА ОРАНЖЕВЫХ", myPick == 2 ? Defs.TeamB : Defs.TeamB * 0.45f, () => Game.I.PickTeam(2), 26);
+                UIKit.Place(pb.Bg.rectTransform, new Vector2(0.5f, 0), new Vector2(0, 0), new Vector2(-100, 118), new Vector2(250, 68));
+                var pn = UIKit.Button(r, "ВСЁ РАВНО", myPick == 0 ? new Color(0.5f, 0.5f, 0.6f) : new Color(0.25f, 0.28f, 0.45f), () => Game.I.PickTeam(0), 24);
+                UIKit.Place(pn.Bg.rectTransform, new Vector2(0.5f, 0), new Vector2(0, 0), new Vector2(160, 118), new Vector2(190, 68));
+            }
+            string Hex(Color c) => ColorUtility.ToHtmlStringRGB(c);
+            string Who(string id) => id == Save.P.id ? "ты" : n.NameOf(id);
+            var blue = n.Members.Keys.Where(id => v.picks.TryGetValue(id, out var t) && t == 1).Select(Who).ToList();
+            var orange = n.Members.Keys.Where(id => v.picks.TryGetValue(id, out var t) && t == 2).Select(Who).ToList();
+            var free = n.Members.Keys.Where(id => !v.picks.ContainsKey(id)).Select(Who).ToList();
+            var who = UIKit.Txt(r, $"<color=#{Hex(Defs.TeamA)}>СИНИЕ: {(blue.Count > 0 ? string.Join(", ", blue) : "—")}</color>    <color=#{Hex(Defs.TeamB)}>ОРАНЖЕВЫЕ: {(orange.Count > 0 ? string.Join(", ", orange) : "—")}</color>" + (free.Count > 0 ? "    без выбора: " + string.Join(", ", free) : "") + (n.Members.Count == 1 ? "   (ты один — против ботов)" : ""), 24, Color.white);
+            who.richText = true;
+            UIKit.Place(who.rectTransform, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 196), new Vector2(1500, 40));
+            string tm = v.teamMode == 0 ? "Остальные: поровну в обе команды" : "Остальные: все в одну команду против ботов";
             if (n.IsHost && v.result == null)
             {
-                var b1 = UIKit.Button(r, "ДРУГ ПРОТИВ ДРУГА", v.teamMode == 0 ? UIKit.Pink : new Color(0.25f, 0.28f, 0.45f), () => Game.I.SetTeamMode(0), 26);
-                UIKit.Place(b1.Bg.rectTransform, new Vector2(0.5f, 0), new Vector2(1, 0), new Vector2(-10, 40), new Vector2(380, 76));
-                var b2 = UIKit.Button(r, "ВМЕСТЕ ПРОТИВ БОТОВ", v.teamMode == 1 ? UIKit.Pink : new Color(0.25f, 0.28f, 0.45f), () => Game.I.SetTeamMode(1), 26);
-                UIKit.Place(b2.Bg.rectTransform, new Vector2(0.5f, 0), new Vector2(0, 0), new Vector2(10, 40), new Vector2(400, 76));
-                var c = UIKit.Button(r, "ОТМЕНА", UIKit.Red, () => Game.I.CancelVote(), 26);
-                UIKit.Place(c.Bg.rectTransform, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-30, 40), new Vector2(200, 76));
+                var b1 = UIKit.Button(r, "ДРУГ ПРОТИВ ДРУГА", v.teamMode == 0 ? UIKit.Pink : new Color(0.25f, 0.28f, 0.45f), () => Game.I.SetTeamMode(0), 24);
+                UIKit.Place(b1.Bg.rectTransform, new Vector2(0.5f, 0), new Vector2(1, 0), new Vector2(-10, 30), new Vector2(340, 68));
+                var b2 = UIKit.Button(r, "ВМЕСТЕ ПРОТИВ БОТОВ", v.teamMode == 1 ? UIKit.Pink : new Color(0.25f, 0.28f, 0.45f), () => Game.I.SetTeamMode(1), 24);
+                UIKit.Place(b2.Bg.rectTransform, new Vector2(0.5f, 0), new Vector2(0, 0), new Vector2(10, 30), new Vector2(360, 68));
+                var c = UIKit.Button(r, "ОТМЕНА", UIKit.Red, () => Game.I.CancelVote(), 24);
+                UIKit.Place(c.Bg.rectTransform, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-30, 30), new Vector2(190, 68));
             }
             else
             {
-                var t2 = UIKit.Txt(r, tm, 28, Color.white);
-                UIKit.Place(t2.rectTransform, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 50), new Vector2(1400, 50));
+                var t2 = UIKit.Txt(r, tm, 24, UIKit.Muted);
+                UIKit.Place(t2.rectTransform, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 40), new Vector2(1400, 44));
             }
-            var who = UIKit.Txt(r, "В отряде: " + string.Join(", ", n.Members.Values.Select(m => m.id == Save.P.id ? "ты" : (m.name ?? m.id))) + (n.Members.Count == 1 ? "  (один — против ботов)" : ""), 24, UIKit.Muted);
-            UIKit.Place(who.rectTransform, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 130), new Vector2(1400, 40));
         }
 
         // ================================================================== end of match

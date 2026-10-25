@@ -21,7 +21,7 @@ namespace Arena
             dir = Boot.Arg("-shots") ?? Path.Combine(Application.persistentDataPath, "shots");
             Directory.CreateDirectory(dir);
             Application.logMessageReceived += (msg, st, type) => { if (type == LogType.Exception) Check("no exception: " + msg.Split('\n')[0], false); };
-            StartCoroutine(Boot.Has("-mptest") ? Mp(Boot.Arg("-mptest")) : Run());
+            StartCoroutine(Boot.Has("-mptest") ? Mp(Boot.Arg("-mptest")) : Boot.Has("-mapshots") ? MapShots() : Boot.Has("-humanshots") ? HumanShots() : Run());
         }
 
         void Check(string what, bool ok)
@@ -49,6 +49,78 @@ namespace Arena
             var d = at - (pos + Vector3.up * 1.6f);
             p.yaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
             p.pitch = -Mathf.Atan2(d.y, new Vector2(d.x, d.z).magnitude) * Mathf.Rad2Deg;
+        }
+
+        /// <summary>Renders a preview picture of every location (for the vote cards) into the shots folder.</summary>
+        IEnumerator MapShots()
+        {
+            var g = Game.I;
+            yield return Wait(0.5f);
+            g.Lobby.root.SetActive(false);
+            var rt = new RenderTexture(768, 448, 24);
+            foreach (var md in Defs.Maps)
+            {
+                var m = Maps.Build(md.id, 7, null, true);
+                var roof = m.root.transform.Find("Roof"); if (roof != null) roof.gameObject.SetActive(false);
+                var camGo = new GameObject("PreviewCam");
+                var cam = camGo.AddComponent<Camera>();
+                cam.targetTexture = rt; cam.fieldOfView = 50;
+                m.Activate(cam);
+                cam.farClipPlane = 600;
+                var b = m.bounds;
+                float size = Mathf.Max(b.width, b.height);
+                var c = new Vector3(b.center.x, 0, b.center.y);
+                camGo.transform.position = c + new Vector3(-size * 0.42f, size * 0.5f, -size * 0.62f);
+                camGo.transform.LookAt(c + Vector3.down * size * 0.05f);
+                yield return Wait(0.3f);
+                cam.Render();
+                var prev = RenderTexture.active; RenderTexture.active = rt;
+                var tex = new Texture2D(rt.width, rt.height, TextureFormat.RGB24, false);
+                tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0); tex.Apply();
+                RenderTexture.active = prev;
+                File.WriteAllBytes(Path.Combine(dir, md.id + ".jpg"), tex.EncodeToJPG(88));
+                Check("preview " + md.id, true);
+                Destroy(camGo); m.Destroy();
+                yield return null;
+            }
+            Application.Quit();
+        }
+
+        /// <summary>Realistic fighters in both team colours with different weapons, standing and walking.</summary>
+        IEnumerator HumanShots()
+        {
+            var g = Game.I; var p = PlayerCtl.I;
+            yield return Wait(0.5f);
+            g.Lobby.root.SetActive(false);
+            var m = Maps.Build("desert", 3, null, true);
+            m.Activate(p.Cam);
+            g.Cur = m;
+            var list = new List<Avatar>();
+            string[] w = { "ak74", "deagle", "katana", "awp" };
+            for (int i = 0; i < 4; i++)
+            {
+                var a = Avatar.Create("h" + i + "x", "Боец " + (i + 1), null);
+                a.SetTeam(i % 2 + 1); a.SetWeapon(w[i], Defs.Skins[(i * 5 + 16) % Defs.Skins.Count].id);
+                a.Smooth = false;
+                a.SetState(new Vector3(-3 + i * 2, 0, 0), 180, i == 3 ? -20 : 0, true, 100);
+                list.Add(a);
+            }
+            Look(new Vector3(0, 0.1f, -5.2f), new Vector3(0, 1.2f, 0));
+            yield return Wait(1.5f);
+            yield return Shot("h1_front");
+            foreach (var a in list) a.tYaw = 90;
+            yield return Wait(1f);
+            yield return Shot("h2_side");
+            Look(new Vector3(-1.2f, 0.1f, -1.6f), new Vector3(-1f, 1.5f, 0));
+            foreach (var a in list) a.tYaw = 180;
+            yield return Wait(1f);
+            yield return Shot("h3_close");
+            // walking
+            for (int k = 0; k < 60; k++) { foreach (var a in list) a.transform.position += Vector3.right * 4f * Time.deltaTime; yield return null; }
+            Look(new Vector3(2, 0.1f, -5.2f), new Vector3(2, 1.2f, 0));
+            for (int k = 0; k < 20; k++) { foreach (var a in list) a.transform.position += Vector3.right * 4f * Time.deltaTime; yield return null; }
+            yield return Shot("h4_walk");
+            Application.Quit();
         }
 
         IEnumerator Run()
@@ -109,6 +181,7 @@ namespace Arena
             {
                 yield return Match(map, map == "desert" ? 2 : 1);
             }
+            foreach (var map in new[] { "city", "warehouse", "moon", "winter", "ship" }) yield return QuickMatch(map);
             Check("TOTAL fails=" + fails, fails == 0);
             yield return Wait(0.5f);
             Application.Quit();
@@ -142,6 +215,46 @@ namespace Arena
             yield return Wait(0.4f);
             yield return Shot(shot);
             Destroy(root); Destroy(light.gameObject);
+        }
+
+        /// <summary>New worlds: the match starts there, bots move around and can be shot, no one falls through.</summary>
+        IEnumerator QuickMatch(string map)
+        {
+            var g = Game.I; var p = PlayerCtl.I;
+            g.Queue(2);
+            yield return Wait(0.5f);
+            if (map == "city") yield return Shot("15_vote_9_maps");
+            g.Vote(map);
+            yield return Wait(4f);
+            Check(map + ": match started", g.M != null && g.M.map == map);
+            if (g.M == null) yield break;
+            p.invulnUntil = Time.time + 1000;
+            yield return Wait(4.5f);
+            yield return Shot("30_" + map + "_spawn");
+            var start = g.Bots.Select(b => b.Pos).ToList();
+            yield return Wait(5f);
+            float moved = g.Bots.Select((b, i) => (b.Pos - start[i]).magnitude).Max();
+            Check(map + ": bots move (max " + moved.ToString("0.0") + " m)", moved > 2f);
+            Check(map + ": nobody fell out", g.Bots.All(b => b.Pos.y > g.Cur.fallY + 1) && p.Pos.y > g.Cur.fallY + 1);
+            if (map == "moon") Check("moon: low gravity", g.Cur.gravity < 10);
+            var bot = g.Bots.FirstOrDefault(x => x.team != p.team && x.alive);
+            int k0 = g.M.stats[Save.P.id].x;
+            for (int i = 0; i < 40 && bot != null && g.M.stats[Save.P.id].x == k0; i++)
+            {
+                if (!bot.alive) break;
+                var bp = bot.Pos;
+                Look(bp + new Vector3(0, 0, -3.2f), bp + Vector3.up * 1.2f);
+                p.Equip(0, true); p.Slots[0].next = 0; p.Slots[0].ammo = Mathf.Max(p.Slots[0].ammo, 5); p.Slots[0].reloadEnd = 0;
+                p.FireTap = true;
+                yield return null; yield return null;
+                if (i == 3) yield return Shot("31_" + map + "_fight");
+            }
+            Check(map + ": killed a bot", g.M.stats[Save.P.id].x > k0);
+            p.invulnUntil = 0;
+            g.LeaveMatch();
+            yield return Wait(0.6f);
+            Menus.CloseEnd(); g.ToLobby();
+            yield return Wait(0.6f);
         }
 
         IEnumerator Match(string map, int mode)
@@ -231,6 +344,7 @@ namespace Arena
                 int k1 = g.M.stats[Save.P.id].x;
                 Save.SetSlot("primary", "rpg7"); p.BuildLoadout(false);
                 var rpgIdx = p.Slots.FindIndex(s => s.w.id == "rpg7");
+                for (int i = 0; i < 300 && !g.Bots.Any(x => x.team != p.team && x.alive); i++) yield return null;
                 var bt = g.Bots.FirstOrDefault(x => x.team != p.team && x.alive);
                 if (rpgIdx >= 0 && bt != null)
                 {
@@ -279,12 +393,14 @@ namespace Arena
                 t0 = Time.time;
                 while (g.V == null && Time.time - t0 < 40) yield return null;
                 Check("guest: vote screen appeared", g.V != null);
+                g.PickTeam(1);
+                yield return Wait(1.5f);
                 yield return Shot("mp_guest_vote");
-                g.Vote("forest");
+                g.Vote("city");
                 t0 = Time.time;
                 while (g.M == null && Time.time - t0 < 30) yield return null;
-                Check("guest: match started on " + g.M?.map, g.M != null && g.M.map == "forest");
-                if (g.M != null) Check("guest: in opposite team", g.M.Team(Save.P.id) != g.M.Team(hostId));
+                Check("guest: match started on " + g.M?.map, g.M != null && g.M.map == "city");
+                if (g.M != null) Check("guest: in the SAME team as the friend", g.M.Team(Save.P.id) == g.M.Team(hostId) && !g.IsEnemy(hostId));
                 yield return Wait(6f);
                 yield return Shot("mp_guest_match");
                 Check("guest: host visible in match", g.Remotes.TryGetValue(hostId, out var h) && h.Scene == g.SceneId);
@@ -298,30 +414,19 @@ namespace Arena
                 yield return Shot("mp_host_lobby");
                 g.Queue(1);
                 yield return Wait(1.5f);
-                g.Vote("forest");
+                g.PickTeam(1);
+                g.Vote("city");
                 yield return Shot("mp_host_vote");
                 t0 = Time.time;
                 while (g.M == null && Time.time - t0 < 30) yield return null;
-                Check("host: match started", g.M != null && g.M.map == "forest");
-                Check("host: no bots in 1v1 with a friend", g.Bots.Count == 0);
+                Check("host: match started", g.M != null && g.M.map == "city");
+                Check("host: friend in my team, 2 enemy bots", g.Bots.Count == 2 && g.Bots.All(b => b.team == 2) && g.M.Team(g.Remotes.Keys.FirstOrDefault() ?? "") == 1);
                 yield return Wait(6f);
                 yield return Shot("mp_host_match");
                 var guest = g.Remotes.Keys.FirstOrDefault();
                 Check("host: guest visible in match", guest != null && g.Remotes[guest].Scene == g.SceneId);
-                // shoot the guest
-                if (guest != null)
-                {
-                    var gp = g.Remotes[guest].transform.position;
-                    for (int i = 0; i < 30 && g.M.score[p.team] == 0; i++)
-                    {
-                        gp = g.Remotes[guest].transform.position;
-                        Look(gp + new Vector3(0, 0, -3), gp + Vector3.up * 1.2f);
-                        p.Slots[0].next = 0; p.Slots[0].ammo = 8; p.FireTap = true;
-                        yield return Wait(0.35f);
-                    }
-                    yield return Wait(2f);
-                    Check("host: killed the guest through the network (score " + g.M.score[p.team] + ")", g.M.score[p.team] > 0);
-                }
+                // a teammate can't be shot; enemy bots can
+                if (guest != null) Check("host: friend is not an enemy", !g.IsEnemy(guest));
             }
             yield return Wait(4f);
             Check("TOTAL fails=" + fails, fails == 0);

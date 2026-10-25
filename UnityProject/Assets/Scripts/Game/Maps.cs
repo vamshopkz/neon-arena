@@ -21,6 +21,7 @@ namespace Arena
         public bool sky;
         public Color bg = Color.black, fog = Color.black, ambSky = Color.gray, ambEq = Color.gray, ambGround = Color.gray;
         public float fogStart = 60, fogEnd = 200;
+        public float gravity = 20f, fallY = -20f;
         public Color vmLight = Color.white;
         public System.Action<float> tick;
 
@@ -167,7 +168,7 @@ namespace Arena
     public static class Maps
     {
         // ------------------------------------------------------------ helpers
-        class W
+        public class W
         {
             public readonly Geo g = new Geo();
             public readonly Transform root, cols;
@@ -218,9 +219,9 @@ namespace Arena
             public void Done(bool shadows) => g.Build("Geometry", root, shadows, Layers.World);
         }
 
-        static Spawn SP(float x, float z, float tx = 0, float tz = 0) => new Spawn { pos = new Vector3(x, 0.1f, z), yaw = Mathf.Atan2(tx - x, tz - z) * Mathf.Rad2Deg };
+        public static Spawn SP(float x, float z, float tx = 0, float tz = 0) => new Spawn { pos = new Vector3(x, 0.1f, z), yaw = Mathf.Atan2(tx - x, tz - z) * Mathf.Rad2Deg };
 
-        static Light Sun(Transform parent, Color c, float intensity, Vector3 euler, bool shadows)
+        public static Light Sun(Transform parent, Color c, float intensity, Vector3 euler, bool shadows)
         {
             var go = new GameObject("Sun");
             go.transform.SetParent(parent, false);
@@ -232,7 +233,7 @@ namespace Arena
             return l;
         }
 
-        static void PointLight(Transform parent, Vector3 pos, Color c, float intensity, float range)
+        public static void PointLight(Transform parent, Vector3 pos, Color c, float intensity, float range)
         {
             var go = new GameObject("Light");
             go.transform.SetParent(parent, false);
@@ -243,7 +244,7 @@ namespace Arena
 
         static Material Rep(Material m, float tile) { return m; }
 
-        static GameObject Ground(Transform parent, float size, Material m, float tile)
+        public static GameObject Ground(Transform parent, float size, Material m, float tile)
         {
             var g = new Geo();
             g.Box(m, new Vector3(0, -0.05f, 0), new Vector3(size, 0.1f, size), Quaternion.identity, tile);
@@ -256,7 +257,7 @@ namespace Arena
             return go;
         }
 
-        static TextMeshPro Sign(Transform parent, string text, Vector3 pos, float yaw, float size, Color c)
+        public static TextMeshPro Sign(Transform parent, string text, Vector3 pos, float yaw, float size, Color c)
         {
             var t = Prim.Text(parent, text, pos, size, c);
             t.transform.rotation = Quaternion.Euler(0, yaw, 0);
@@ -289,6 +290,11 @@ namespace Arena
                 case "desert": Desert(m, seed, shadows); break;
                 case "maze": Maze(m, seed, shadows); break;
                 case "stadium": Stadium(m, shadows); break;
+                case "city": MapsMore.City(m, seed, shadows); break;
+                case "warehouse": MapsMore.Warehouse(m, seed, shadows); break;
+                case "moon": MapsMore.Moon(m, seed, shadows); break;
+                case "winter": MapsMore.Winter(m, seed, shadows); break;
+                case "ship": MapsMore.Ship(m, seed, shadows); break;
                 default: Forest(m, seed, shadows); break;
             }
             Physics.SyncTransforms();

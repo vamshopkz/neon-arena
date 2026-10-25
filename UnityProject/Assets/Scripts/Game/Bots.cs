@@ -19,7 +19,8 @@ namespace Arena
                 for (int i = 0; i < n.W; i++)
                 {
                     var c = new Vector3(n.x0 + (i + 0.5f) * n.cell, 0, n.z0 + (j + 0.5f) * n.cell);
-                    n.blocked[j * n.W + i] = Physics.CheckCapsule(c + Vector3.up * 0.6f, c + Vector3.up * 1.4f, 0.45f, Layers.SolidMask, QueryTriggerInteraction.Ignore);
+                    n.blocked[j * n.W + i] = Physics.CheckCapsule(c + Vector3.up * 0.6f, c + Vector3.up * 1.4f, 0.45f, Layers.SolidMask, QueryTriggerInteraction.Ignore)
+                        || !Physics.Raycast(c + Vector3.up * 0.5f, Vector3.down, 1.5f, Layers.SolidMask, QueryTriggerInteraction.Ignore);   // no floor (ship: the sea)
                 }
             return n;
         }
@@ -213,10 +214,10 @@ namespace Arena
             var q = Quaternion.Euler(0, yaw, 0);
             var v = q * new Vector3(mv.x, 0, mv.y) * 4.6f;
             if (cc.isGrounded && vy < 0) vy = -2;
-            vy -= 20 * dt;
+            vy -= g.Cur.gravity * dt;
             v.y = vy;
             cc.Move(v * dt);
-            if (pos.y < -10) Spawn(g.SpawnFor(team));
+            if (pos.y < g.Cur.fallY) Spawn(g.SpawnFor(team));
             stuckT += dt;
             if (stuckT > 1)
             {
