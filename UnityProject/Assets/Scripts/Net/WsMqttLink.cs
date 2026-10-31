@@ -116,6 +116,9 @@ namespace Arena
         [DllImport("__Internal")] static extern int GadWsRecv(int id, byte[] into, int offset, int max);
         [DllImport("__Internal")] static extern void GadWsClose(int id);
         [DllImport("__Internal")] static extern void GadSyncFs();
+        [DllImport("__Internal")] static extern void GadReload();
+        /// <summary>Reload the page (the new version of the game is on the server).</summary>
+        public static void Reload() => GadReload();
 
         public static int WsOpen(string url) => GadWsOpen(url);
         public static int WsState(int id) => GadWsState(id);
@@ -131,6 +134,7 @@ namespace Arena
         public static int WsRecv(int id, byte[] into, int offset) => 0;
         public static void WsClose(int id) { }
         public static void SyncFiles() { }
+        public static void Reload() { }
 #endif
         public static bool IsWeb => Application.platform == RuntimePlatform.WebGLPlayer;
     }

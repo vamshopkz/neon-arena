@@ -174,6 +174,18 @@ namespace Arena
             p.AimOff(); yield return Wait(0.3f);
             Check("УБРАТЬ ПРИЦЕЛ turns the scope off", !p.zoomed && !p.AimOn);
             Save.SetSlot("primary", "ak74"); p.BuildLoadout(false);
+            // «ОБНОВИТЬ»: only while a newer version exists
+            Updater.I.Fake(null);
+            Menus.Pause(); yield return Wait(0.4f);
+            Check("no update → no ОБНОВИТЬ button", GameObject.Find("UpdateButton") == null);
+            Window.Close();
+            Updater.I.Fake("9.9");
+            Menus.Pause(); yield return Wait(0.4f);
+            var ub = GameObject.Find("UpdateButton");
+            Check("update out → ОБНОВИТЬ button in the menu", ub != null && ub.GetComponent<UnityEngine.UI.Image>().enabled && Updater.I.ButtonText.Contains("9.9"));
+            yield return Shot("16_menu_update_button");
+            Window.Close();
+            Updater.I.Fake(null);
             Menus.ShopSection("med"); yield return Wait(0.8f); yield return Shot("09_shop_medkits"); Window.Close();
 
             // vote → match on each map

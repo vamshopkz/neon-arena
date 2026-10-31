@@ -338,6 +338,7 @@ namespace Arena
             else if (m != null && m.state == 0) h = "Приготовься!";
             else if (p.zoomed) h = "ПРИЦЕЛ ВКЛЮЧЁН — наведи на соперника, оружие выстрелит само";
             hint.text = h;
+            menuBtn.Bg.color = Updater.HasUpdate ? new Color(1f, 0.55f, 0.1f) : new Color(0.25f, 0.28f, 0.45f);
             if (zoomBtn != null) zoomBtn.Bg.color = p.zoomed ? new Color(1f, 0.25f, 0.6f, 0.85f) : new Color(0.3f, 0.3f, 0.4f, 0.75f);
             if (fireBtn != null) fireBtn.Set(s != null && s.w.type == WType.Melee ? "УДАР" : s != null && !s.w.Hitscan && s.w.type != WType.Rocket ? "БРОСОК" : "ОГОНЬ");
             if (touchRoot != null) touchRoot.gameObject.SetActive(!Menus.AnyOpen);

@@ -74,11 +74,32 @@ namespace Arena
                 if (!string.IsNullOrEmpty(Save.P.lastRoom)) { Net.I.JoinRoom(Save.P.lastRoom); Hud.Toast("Возвращаюсь в отряд " + Save.P.lastRoom + "…", UIKit.Cyan); }
             }, 44);
             UIKit.Place(play.Bg.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -360), new Vector2(460, 100));
+            var upd = UpdateBtn(panel.transform);
+            UIKit.Place(upd.Bg.rectTransform, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -470), new Vector2(460, 76));
             var help = UIKit.Txt(panel.transform,
                 (Hud.Touch ? "Левый палец — ходить, правый — смотреть, кнопка ОГОНЬ — стрелять.\n" :
                 "WASD — ходить · мышь — целиться · ЛКМ — огонь · ПКМ — прицел · R — перезарядка\n1-5 / колесо — оружие · Shift — бег · Пробел — прыжок · E — магазин · Tab — счёт\n") +
                 "Играть с другом: ОТРЯД → отправь другу свой код → он вводит его у себя.\nПотом встаньте в портал — у обоих появится выбор локации.", 23, UIKit.Muted);
             UIKit.Place(help.rectTransform, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 40), new Vector2(840, 190));
+        }
+
+        /// <summary>«ОБНОВИТЬ» button: exists only while a newer version is out; its label follows the download.</summary>
+        class UpdateButton : MonoBehaviour
+        {
+            public UIButton btn;
+            void Update()
+            {
+                bool show = Updater.HasUpdate;
+                if (btn.Bg.enabled != show) { btn.Bg.enabled = show; btn.Label.enabled = show; btn.Interactable = show; foreach (Transform c in transform) c.gameObject.SetActive(show); }
+                if (show) btn.Set(Updater.I.ButtonText);
+            }
+        }
+
+        static UIButton UpdateBtn(Transform parent)
+        {
+            var b = UIKit.Button(parent, "ОБНОВИТЬ", new Color(1f, 0.55f, 0.1f), () => Updater.I?.Press(), 32, "UpdateButton");
+            b.gameObject.AddComponent<UpdateButton>().btn = b;
+            return b;
         }
 
         // ================================================================== pause
@@ -89,6 +110,15 @@ namespace Arena
             Unlock();
             Window.Show("МЕНЮ", w =>
             {
+                if (Updater.HasUpdate)
+                {
+                    var row = UIKit.Img(w.Content, UIKit.Glass, Color.white, "UpdateRow");
+                    row.gameObject.AddComponent<LayoutElement>().minHeight = 104;
+                    var t = UIKit.Txt(row.transform, "Вышла новая версия " + Updater.I.LatestVersion + "!", 30, UIKit.Gold, TMPro.TextAlignmentOptions.MidlineLeft, false);
+                    UIKit.Fill(t.rectTransform, 22, 0, 420, 0);
+                    var b = UpdateBtn(row.transform);
+                    UIKit.Place(b.Bg.rectTransform, new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-14, 0), new Vector2(380, 76));
+                }
                 w.Row("Продолжить", null, "ИГРАТЬ", UIKit.Lime, () => { Window.Close(); LockCursor(); });
                 var g = Game.I;
                 if (g.M == null) w.Row("Магазин оружия и скинов", "Монеты: " + UIKit.Num(Save.P.coins), "ОТКРЫТЬ", UIKit.Gold, () => Shop());
@@ -109,7 +139,7 @@ namespace Arena
                 }
                 w.Chips("Громкость", vol);
                 w.Text($"Статистика: боёв {Save.P.matches}, побед {Save.P.wins}, убийств {Save.P.kills}, смертей {Save.P.deaths}", 24, UIKit.Muted);
-                w.Footer.text = "Неон Арена · ник " + Save.P.name;
+                w.Footer.text = "Неон Арена · версия " + Application.version + " · ник " + Save.P.name;
             }, 1000, 780);
         }
 

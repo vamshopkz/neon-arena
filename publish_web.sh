@@ -11,6 +11,9 @@ DIR=$HERE/web-publish
 rm -rf $DIR; mkdir -p $DIR
 cp -R $SRC/ $DIR/
 touch $DIR/.nojekyll
+# the game in the browser compares this with its own version and shows «ОБНОВИТЬ» when the page is newer
+VER=$(grep -m1 "bundleVersion:" $HERE/UnityProject/ProjectSettings/ProjectSettings.asset | awk '{print $2}')
+printf '{"version": "%s"}' "$VER" > $DIR/version.json
 cd $DIR
 git init -q -b gh-pages
 git add -A

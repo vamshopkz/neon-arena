@@ -47,6 +47,7 @@ namespace Arena
 
             UIRoot.Create();
             AudioFx.Create();
+            Updater.Create();
             PlayerCtl.Create();
             PostFx(mobile);
             Net.Create();

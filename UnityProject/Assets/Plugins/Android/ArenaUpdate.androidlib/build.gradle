@@ -1,0 +1,16 @@
+apply plugin: 'com.android.library'
+
+android {
+    namespace 'com.aleksandrkuzmenko.arenaupdate'
+    compileSdk 36
+    defaultConfig {
+        minSdk 28
+    }
+    // Files live at the module root (Unity .androidlib layout), not in src/main.
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            res.srcDirs = ['res']
+        }
+    }
+}
